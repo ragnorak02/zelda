@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Zelda</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Mobile action buttons (hidden on desktop via CSS) -->
+    <div id="mobile-controls">
+        <button id="btn-attack" class="mobile-btn">ATK</button>
+        <button id="btn-magic" class="mobile-btn">MAGIC</button>
+        <button id="btn-ability" class="mobile-btn">ABIL</button>
+        <button id="btn-lockon" class="mobile-btn">LOCK</button>
+        <button id="btn-dodge" class="mobile-btn">DODGE</button>
+        <button id="btn-jump" class="mobile-btn">JUMP</button>
+        <button id="btn-strafe" class="mobile-btn">STRAFE</button>
+    </div>
+    <button id="btn-pause" class="mobile-btn mobile-btn-small">| |</button>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

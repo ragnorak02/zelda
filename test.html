@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html><head><title>Zelda Debug Test</title></head>
+<body>
+<canvas id="game-canvas" width="800" height="600"></canvas>
+<pre id="log" style="color:#0f0;background:#000;padding:10px;font-size:14px;white-space:pre-wrap;"></pre>
+<script type="module">
+const log = document.getElementById('log');
+function out(msg) {
+    log.textContent += msg + '\n';
+    console.log(msg);
+}
+
+try {
+    out('1. Loading constants...');
+    const constants = await import('./js/constants.js');
+    out('   CHARACTERS keys: ' + Object.keys(constants.CHARACTERS).join(', '));
+    out('   MP_CONFIG: ' + JSON.stringify(constants.MP_CONFIG));
+    out('   FIGHTER_ABILITIES keys: ' + Object.keys(constants.FIGHTER_ABILITIES).join(', '));
+    out('   MAGE_ABILITIES keys: ' + Object.keys(constants.MAGE_ABILITIES).join(', '));
+    out('   CELESTIAL_ABILITIES keys: ' + Object.keys(constants.CELESTIAL_ABILITIES).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('2. Loading utils...');
+    const utils = await import('./js/utils.js');
+    out('   exports: ' + Object.keys(utils).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('3. Loading input...');
+    const input = await import('./js/input.js');
+    const canvas = document.getElementById('game-canvas');
+    const inp = new input.Input(canvas);
+    out('   actionPressed test: ' + inp.actionPressed('attack'));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('4. Loading weapons (EffectEngine)...');
+    const weapons = await import('./js/weapons.js');
+    out('   exports: ' + Object.keys(weapons).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('5. Loading dodge...');
+    const dodge = await import('./js/dodge.js');
+    out('   exports: ' + Object.keys(dodge).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('6. Loading AbilitySet...');
+    const abs = await import('./js/abilities/AbilitySet.js');
+    out('   exports: ' + Object.keys(abs).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('7. Loading player...');
+    const player = await import('./js/player.js');
+    out('   exports: ' + Object.keys(player).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('8. Creating Player (fighter)...');
+    const { CHARACTERS } = await import('./js/constants.js');
+    const { Player } = await import('./js/player.js');
+    const p = new Player(CHARACTERS.fighter, 'fighter');
+    out('   hp=' + p.hp + ' mp=' + p.mp + ' maxMp=' + p.maxMp);
+    out('   abilities type: ' + p.abilities.constructor.name);
+    out('   effectEngine type: ' + p.effectEngine.constructor.name);
+    out('   dodgeSystem type: ' + p.dodgeSystem.constructor.name);
+    out('   canSpendMp(1): ' + p.canSpendMp(1));
+    out('   getAbilityStatus: ' + JSON.stringify(p.abilities.getAbilityStatus()));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('9. Creating Player (mage)...');
+    const { CHARACTERS } = await import('./js/constants.js');
+    const { Player } = await import('./js/player.js');
+    const p = new Player(CHARACTERS.mage, 'mage');
+    out('   hp=' + p.hp + ' mp=' + p.mp);
+    out('   abilities type: ' + p.abilities.constructor.name);
+    out('   getAbilityStatus: ' + JSON.stringify(p.abilities.getAbilityStatus()));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('10. Creating Player (celestial)...');
+    const { CHARACTERS } = await import('./js/constants.js');
+    const { Player } = await import('./js/player.js');
+    const p = new Player(CHARACTERS.celestial, 'celestial');
+    out('   hp=' + p.hp + ' mp=' + p.mp);
+    out('   abilities type: ' + p.abilities.constructor.name);
+    out('   fairy exists: ' + !!p.abilities.fairy);
+    out('   getAbilityStatus: ' + JSON.stringify(p.abilities.getAbilityStatus()));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('11. Loading enemy...');
+    const enemy = await import('./js/enemy.js');
+    out('   exports: ' + Object.keys(enemy).join(', '));
+    const mgr = new enemy.EnemyManager();
+    mgr.spawn('shambler', 100, 100, 1);
+    const e = mgr.getEnemies()[0];
+    out('   enemy created: ' + e.type + ' hp=' + e.hp);
+    out('   applySlow exists: ' + typeof e.applySlow);
+    out('   applyKnockback exists: ' + typeof e.applyKnockback);
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('12. Loading UI...');
+    const ui = await import('./js/ui.js');
+    out('   exports: ' + Object.keys(ui).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('13. Loading camera...');
+    const cam = await import('./js/camera.js');
+    out('   exports: ' + Object.keys(cam).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('14. Loading lockon...');
+    const lo = await import('./js/lockon.js');
+    out('   exports: ' + Object.keys(lo).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('15. Loading pause...');
+    const pa = await import('./js/pause.js');
+    out('   exports: ' + Object.keys(pa).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('16. Loading world...');
+    const wo = await import('./js/world.js');
+    out('   exports: ' + Object.keys(wo).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('17. Loading Game class...');
+    const game = await import('./js/game.js');
+    out('   exports: ' + Object.keys(game).join(', '));
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('18. Creating Game instance...');
+    const { Game } = await import('./js/game.js');
+    const canvas = document.getElementById('game-canvas');
+    const g = new Game(canvas);
+    out('   state: ' + g.state);
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('19. Simulating _startPlaying("fighter")...');
+    const { Game } = await import('./js/game.js');
+    const canvas = document.getElementById('game-canvas');
+    const g = new Game(canvas);
+    // Remove any overlays first
+    const overlay = document.getElementById('character-select');
+    if (overlay) overlay.remove();
+    g._startPlaying('fighter');
+    out('   player created: ' + !!g.player);
+    out('   player.hp: ' + g.player.hp);
+    out('   player.mp: ' + g.player.mp);
+    out('   state: ' + g.state);
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+try {
+    out('20. Simulating one update frame...');
+    const { Game } = await import('./js/game.js');
+    const canvas = document.getElementById('game-canvas');
+    const g = new Game(canvas);
+    const overlay = document.getElementById('character-select');
+    if (overlay) overlay.remove();
+    g._startPlaying('fighter');
+    g._update(0.016);
+    out('   update OK');
+    g._render();
+    out('   render OK');
+    out('   OK');
+} catch(e) { out('   FAIL: ' + e.message + '\n' + e.stack); }
+
+out('\n=== ALL TESTS COMPLETE ===');
+</script>
+</body>
+</html>
