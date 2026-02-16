@@ -1,0 +1,44 @@
+# ── Secrets & credentials ──
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.cert
+*.crt
+
+# ── Node.js ──
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ── Build output ──
+build/
+dist/
+out/
+.cache/
+
+# ── OS files ──
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── IDE / Editor ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Engine-specific caches ──
+__pycache__/
+*.pyc
+.parcel-cache/
+.turbo/
+
+# ── Large generated imports ──
+*.zip
+*.tar.gz
+*.rar

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zelda — Project Status Dashboard</title>
+<style>
+  :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9; --green: #3fb950; --yellow: #d29922; --red: #f85149; --blue: #58a6ff; --purple: #bc8cff; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', monospace; padding: 24px; max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 24px; margin-bottom: 4px; }
+  .subtitle { color: #8b949e; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .card h2 { font-size: 14px; text-transform: uppercase; color: #8b949e; margin-bottom: 12px; letter-spacing: 0.5px; }
+  .stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .stat:last-child { border: none; }
+  .stat .label { color: #8b949e; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .badge.green { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge.yellow { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .badge.red { background: rgba(248,81,73,0.15); color: var(--red); }
+  .badge.blue { background: rgba(88,166,255,0.15); color: var(--blue); }
+  .badge.purple { background: rgba(188,140,255,0.15); color: var(--purple); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  th { color: #8b949e; font-size: 12px; text-transform: uppercase; }
+  .full { grid-column: 1 / -1; }
+  .progress-bar { height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .progress-fill { height: 100%; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<h1>Zelda — Project Status</h1>
+<p class="subtitle">Auto-generated dashboard. Last updated: 2026-02-16</p>
+
+<div class="grid">
+
+  <div class="card">
+    <h2>Project Overview</h2>
+    <div class="stat"><span class="label">Engine</span><span>Vanilla JS + Canvas 2D</span></div>
+    <div class="stat"><span class="label">Build System</span><span>None (ES modules)</span></div>
+    <div class="stat"><span class="label">JS Files</span><span>20</span></div>
+    <div class="stat"><span class="label">Total Lines</span><span>~6,800</span></div>
+    <div class="stat"><span class="label">External Deps</span><span>0</span></div>
+    <div class="stat"><span class="label">Assets</span><span>Procedural only</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Code Health</h2>
+    <div class="stat"><span class="label">TODOs / FIXMEs</span><span class="badge green">0</span></div>
+    <div class="stat"><span class="label">Console.log</span><span class="badge green">0 in prod</span></div>
+    <div class="stat"><span class="label">Secrets Detected</span><span class="badge green">None</span></div>
+    <div class="stat"><span class="label">Test Coverage</span><span class="badge yellow">Smoke only</span></div>
+    <div class="stat"><span class="label">CI Pipeline</span><span class="badge red">None</span></div>
+  </div>
+
+  <div class="card full">
+    <h2>System Status</h2>
+    <table>
+      <tr><th>System</th><th>Status</th><th>Notes</th></tr>
+      <tr><td>Player + Classes</td><td><span class="badge green">Complete</span></td><td>Fighter, Mage, Celestial — all abilities implemented</td></tr>
+      <tr><td>Combat / EffectEngine</td><td><span class="badge green">Complete</span></td><td>10 effect types, hit detection, rendering</td></tr>
+      <tr><td>Enemy AI</td><td><span class="badge green">Complete</span></td><td>Swarm, melee (chase/windup/attack/recovery), ranged (strafe/arrows)</td></tr>
+      <tr><td>World / Map</td><td><span class="badge green">Complete</span></td><td>Town, 4 paths, 8 zones, NPCs, buildings, obstacles</td></tr>
+      <tr><td>Input System</td><td><span class="badge green">Complete</span></td><td>Keyboard, mouse, touch, Xbox gamepad</td></tr>
+      <tr><td>Dodge System</td><td><span class="badge green">Complete</span></td><td>Roll, blink, backstep with shared cooldown</td></tr>
+      <tr><td>Jump / Z-axis</td><td><span class="badge green">Complete</span></td><td>Jump physics, vine grab, gap hazards, fall damage</td></tr>
+      <tr><td>UI / HUD</td><td><span class="badge green">Complete</span></td><td>HP/MP bars, zone name, control bar, gamepad HUD</td></tr>
+      <tr><td>Save / Load</td><td><span class="badge green">Complete</span></td><td>localStorage, position + stats + character</td></tr>
+      <tr><td>Pause Menu</td><td><span class="badge green">Complete</span></td><td>Resume, character view, save, main menu</td></tr>
+      <tr><td>Spawn System</td><td><span class="badge yellow">Built, Not Wired</span></td><td>SpawnSystem class exists but not imported by Game</td></tr>
+      <tr><td>Upgrade System</td><td><span class="badge yellow">Built, Not Wired</span></td><td>UPGRADES defined, no UI or trigger</td></tr>
+      <tr><td>NPC Interaction</td><td><span class="badge yellow">Partial</span></td><td>Proximity dialogue only — no talk action or quests</td></tr>
+      <tr><td>Shop System</td><td><span class="badge red">Not Started</span></td><td>Shop buildings exist visually, no buy/sell UI</td></tr>
+      <tr><td>Quest / Progression</td><td><span class="badge red">Not Started</span></td><td>Zones exist but no quest triggers or story flow</td></tr>
+      <tr><td>Audio</td><td><span class="badge red">Not Started</span></td><td>No sound effects or music</td></tr>
+      <tr><td>Sprite Art</td><td><span class="badge red">Not Started</span></td><td>All visuals are procedural shapes</td></tr>
+    </table>
+  </div>
+
+  <div class="card full">
+    <h2>Characters</h2>
+    <table>
+      <tr><th>Class</th><th>HP</th><th>Speed</th><th>Dodge</th><th>Abilities</th></tr>
+      <tr><td><span class="badge blue">Fighter</span></td><td>120</td><td>150</td><td>Roll</td><td>Charge Attack, Wind Push, Spin Attack</td></tr>
+      <tr><td><span class="badge purple">Mage</span></td><td>80</td><td>180</td><td>Blink</td><td>Fire Burst, Frost Ring, Lightning Arc, Meteor</td></tr>
+      <tr><td><span class="badge green">Celestial</span></td><td>70</td><td>220</td><td>Roll</td><td>Fairy Companion, Spirit Dash, Pulse, Minor Heal</td></tr>
+    </table>
+  </div>
+
+  <div class="card full">
+    <h2>World Zones</h2>
+    <table>
+      <tr><th>Zone</th><th>Location</th><th>Features</th></tr>
+      <tr><td>Starting Path</td><td>South</td><td>Tree-lined corridor, signpost</td></tr>
+      <tr><td>Millhaven</td><td>Center</td><td>4 buildings (shops, inn, elder's house), well, 7 NPCs</td></tr>
+      <tr><td>North Path</td><td>North</td><td>Gap hazard, vine obstacle</td></tr>
+      <tr><td>The Fairy Tree</td><td>Far North</td><td>Ancient tree with glow effects, decorative rocks</td></tr>
+      <tr><td>West Path</td><td>West</td><td>Tree corridor leading to cave</td></tr>
+      <tr><td>Darkhollow Cave</td><td>Far West</td><td>Dark interior, cave mouth rocks, rubble</td></tr>
+      <tr><td>East Path</td><td>East</td><td>Tree corridor leading to bridge</td></tr>
+      <tr><td>Broken Bridge</td><td>Far East</td><td>Bridge planks, barricade (blocked), gap hazard</td></tr>
+    </table>
+  </div>
+
+</div>
+
+</body>
+</html>
