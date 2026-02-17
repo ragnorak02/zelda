@@ -1,0 +1,16 @@
+{
+	"id": "zelda",
+	"title": "Zelda",
+	"engine": "html5",
+	"engineVersion": "ES2022",
+	"genre": "Action Adventure",
+	"entryPoint": "index.html",
+	"launchCommand": "open index.html",
+	"testCommand": "node tests/run-tests.mjs",
+	"metadata": {
+		"lastGameplayUpdate": "2026-02-16",
+		"lastArtUpdate": "",
+		"buildVersion": "0.1.0",
+		"progressPercent": 35
+	}
+}
