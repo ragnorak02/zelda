@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --version:*)",
+      "Bash(python -m http.server:*)",
+      "Bash(powershell.exe -Command \"Start-Process ''http://localhost:8000''\")",
+      "Bash(powershell.exe -Command \"Test-NetConnection -ComputerName localhost -Port 8000 -InformationLevel Quiet\")",
+      "Bash(curl:*)",
+      "Bash(start:*)",
+      "Bash(node -e:*)",
+      "Bash(node test-node.mjs:*)",
+      "Bash(node --check:*)",
+      "Bash(cmd.exe /c \"rename Z:\\\\Development\\\\Games\\\\strider zelda\")",
+      "Bash(powershell.exe -Command \"Rename-Item -Path ''Z:\\\\Development\\\\Games\\\\strider'' -NewName ''zelda'' -Force\")",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git -C \"Z:/Development/Games/zelda\" log --oneline --format=\"%H %ai %s\" -5)",
+      "Bash(node tests/run-tests.mjs:*)",
+      "Bash(cat:*)"
+    ]
+  }
+}
