@@ -8,9 +8,9 @@
 	"launchCommand": "open index.html",
 	"testCommand": "node tests/run-tests.mjs",
 	"metadata": {
-		"lastGameplayUpdate": "2026-02-16",
+		"lastGameplayUpdate": "2026-02-17",
 		"lastArtUpdate": "",
-		"buildVersion": "0.1.0",
-		"progressPercent": 35
+		"buildVersion": "0.2.0",
+		"progressPercent": 45
 	}
 }

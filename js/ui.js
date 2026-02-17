@@ -372,6 +372,58 @@ export class UI {
         }
     }
 
+    // ── Spawn HUD (pressure bar, level badge, countdown) ──
+
+    renderSpawnHUD(spawnSystem) {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+
+        // Pressure bar — top-right
+        const barW = 200, barH = 14;
+        const barX = w - barW - 20, barY = 20;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+        ctx.fillStyle = '#222';
+        ctx.fillRect(barX, barY, barW, barH);
+
+        // Yellow→red gradient fill
+        const pct = spawnSystem.getPressurePercent();
+        const grad = ctx.createLinearGradient(barX, 0, barX + barW * pct, 0);
+        grad.addColorStop(0, '#f1c40f');
+        grad.addColorStop(1, '#e74c3c');
+        ctx.fillStyle = grad;
+        ctx.fillRect(barX, barY, barW * pct, barH);
+
+        // "PRESSURE" label
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('PRESSURE', barX + barW / 2, barY + barH / 2);
+
+        // Level badge — below bar, right-aligned
+        ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillText(`LEVEL ${spawnSystem.level}`, barX + barW, barY + barH + 6);
+
+        // Countdown timer — center-top, pulsing red
+        if (spawnSystem.countdownActive) {
+            const remaining = Math.ceil(spawnSystem.countdownTimer);
+            const pulse = 0.6 + Math.sin(performance.now() / 200) * 0.4;
+            ctx.save();
+            ctx.globalAlpha = pulse;
+            ctx.font = 'bold 36px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillText(`SURVIVE ${remaining}`, w / 2, 44);
+            ctx.restore();
+        }
+    }
+
     // ── Game Over ──
 
     renderGameOver() {

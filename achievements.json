@@ -1,0 +1,189 @@
+{
+  "gameId": "zelda",
+  "achievements": [
+    {
+      "id": "first_steps",
+      "name": "First Steps",
+      "description": "Leave Millhaven for the first time",
+      "points": 10,
+      "icon": "icons/achievements/first_steps.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "choose_fighter",
+      "name": "Sword and Shield",
+      "description": "Start a game as the Fighter",
+      "points": 5,
+      "icon": "icons/achievements/choose_fighter.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "choose_mage",
+      "name": "Arcane Student",
+      "description": "Start a game as the Mage",
+      "points": 5,
+      "icon": "icons/achievements/choose_mage.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "choose_celestial",
+      "name": "Star Touched",
+      "description": "Start a game as the Celestial",
+      "points": 5,
+      "icon": "icons/achievements/choose_celestial.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "survive_wave_1",
+      "name": "Trial by Fire",
+      "description": "Survive the first spawn wave countdown",
+      "points": 15,
+      "icon": "icons/achievements/survive_wave_1.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "reach_level_5",
+      "name": "Veteran",
+      "description": "Reach spawn level 5",
+      "points": 25,
+      "icon": "icons/achievements/reach_level_5.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "reach_level_10",
+      "name": "Unstoppable",
+      "description": "Reach spawn level 10",
+      "points": 50,
+      "icon": "icons/achievements/reach_level_10.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "first_upgrade",
+      "name": "Power Up",
+      "description": "Pick your first upgrade",
+      "points": 10,
+      "icon": "icons/achievements/first_upgrade.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "visit_fairy_tree",
+      "name": "Sacred Grove",
+      "description": "Reach the Fairy Tree zone",
+      "points": 10,
+      "icon": "icons/achievements/visit_fairy_tree.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "visit_cave",
+      "name": "Into the Dark",
+      "description": "Enter Darkhollow Cave",
+      "points": 10,
+      "icon": "icons/achievements/visit_cave.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "visit_bridge",
+      "name": "Road Blocked",
+      "description": "Reach the Broken Bridge",
+      "points": 10,
+      "icon": "icons/achievements/visit_bridge.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "visit_all_zones",
+      "name": "Explorer",
+      "description": "Visit every zone in the world",
+      "points": 30,
+      "icon": "icons/achievements/visit_all_zones.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "talk_to_npc",
+      "name": "Friendly Face",
+      "description": "Approach an NPC and read their dialogue",
+      "points": 5,
+      "icon": "icons/achievements/talk_to_npc.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "first_kill",
+      "name": "First Blood",
+      "description": "Defeat your first enemy",
+      "points": 10,
+      "icon": "icons/achievements/first_kill.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "kill_50",
+      "name": "Slayer",
+      "description": "Defeat 50 enemies in a single run",
+      "points": 25,
+      "icon": "icons/achievements/kill_50.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "use_dodge",
+      "name": "Evasive Maneuvers",
+      "description": "Perform a dodge roll or blink",
+      "points": 5,
+      "icon": "icons/achievements/use_dodge.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "use_lockon",
+      "name": "Locked and Loaded",
+      "description": "Lock on to an enemy",
+      "points": 5,
+      "icon": "icons/achievements/use_lockon.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "save_game",
+      "name": "Safety First",
+      "description": "Save your game for the first time",
+      "points": 5,
+      "icon": "icons/achievements/save_game.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "die_first_time",
+      "name": "Game Over",
+      "description": "Die for the first time",
+      "points": 5,
+      "icon": "icons/achievements/die_first_time.png",
+      "unlocked": false,
+      "unlockedAt": null
+    },
+    {
+      "id": "max_hp_upgrade",
+      "name": "Fortified",
+      "description": "Upgrade max HP to 200 or more",
+      "points": 20,
+      "icon": "icons/achievements/max_hp_upgrade.png",
+      "unlocked": false,
+      "unlockedAt": null
+    }
+  ],
+  "meta": {
+    "totalPointsEarned": 0,
+    "lastUpdated": "2026-02-16T00:00:00.000Z"
+  }
+}

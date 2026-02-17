@@ -28,12 +28,32 @@
   .full { grid-column: 1 / -1; }
   .progress-bar { height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; margin-top: 4px; }
   .progress-fill { height: 100%; border-radius: 4px; }
+  .ach-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .ach-header h2 { margin-bottom: 0; }
+  .ach-summary { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+  .ach-points { font-size: 20px; font-weight: 700; color: #f1c40f; }
+  .ach-fraction { color: #8b949e; font-size: 13px; }
+  .ach-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .ach-row:last-child { border: none; }
+  .ach-icon { width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .ach-icon.locked { background: #21262d; color: #484f58; }
+  .ach-icon.unlocked { background: rgba(241,196,15,0.15); color: #f1c40f; }
+  .ach-info { flex: 1; min-width: 0; }
+  .ach-name { font-weight: 600; font-size: 13px; }
+  .ach-desc { color: #8b949e; font-size: 12px; }
+  .ach-pts { font-size: 12px; font-weight: 600; color: #f1c40f; white-space: nowrap; }
+  .ach-date { font-size: 11px; color: #484f58; }
+  .ach-row.locked .ach-name, .ach-row.locked .ach-desc { color: #484f58; }
+  .ach-row.locked .ach-pts { color: #30363d; }
+  .reload-btn { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .reload-btn:hover { border-color: var(--blue); color: var(--blue); }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .ach-summary { flex-direction: column; align-items: flex-start; } }
 </style>
 </head>
 <body>
 
 <h1>Zelda — Project Status</h1>
-<p class="subtitle">Auto-generated dashboard. Last updated: 2026-02-16</p>
+<p class="subtitle">Auto-generated dashboard. Last updated: 2026-02-17</p>
 
 <div class="grid">
 
@@ -41,10 +61,11 @@
     <h2>Project Overview</h2>
     <div class="stat"><span class="label">Engine</span><span>Vanilla JS + Canvas 2D</span></div>
     <div class="stat"><span class="label">Build System</span><span>None (ES modules)</span></div>
-    <div class="stat"><span class="label">JS Files</span><span>20</span></div>
-    <div class="stat"><span class="label">Total Lines</span><span>~6,800</span></div>
+    <div class="stat"><span class="label">JS Files</span><span>21</span></div>
+    <div class="stat"><span class="label">Total Lines</span><span>~7,300</span></div>
     <div class="stat"><span class="label">External Deps</span><span>0</span></div>
     <div class="stat"><span class="label">Assets</span><span>Procedural only</span></div>
+    <div class="stat"><span class="label">Studio OS</span><span class="badge green">Integrated</span></div>
   </div>
 
   <div class="card">
@@ -52,7 +73,7 @@
     <div class="stat"><span class="label">TODOs / FIXMEs</span><span class="badge green">0</span></div>
     <div class="stat"><span class="label">Console.log</span><span class="badge green">0 in prod</span></div>
     <div class="stat"><span class="label">Secrets Detected</span><span class="badge green">None</span></div>
-    <div class="stat"><span class="label">Test Coverage</span><span class="badge yellow">Smoke only</span></div>
+    <div class="stat"><span class="label">Test Coverage</span><span class="badge green">31 contract + 24 smoke</span></div>
     <div class="stat"><span class="label">CI Pipeline</span><span class="badge red">None</span></div>
   </div>
 
@@ -67,11 +88,11 @@
       <tr><td>Input System</td><td><span class="badge green">Complete</span></td><td>Keyboard, mouse, touch, Xbox gamepad</td></tr>
       <tr><td>Dodge System</td><td><span class="badge green">Complete</span></td><td>Roll, blink, backstep with shared cooldown</td></tr>
       <tr><td>Jump / Z-axis</td><td><span class="badge green">Complete</span></td><td>Jump physics, vine grab, gap hazards, fall damage</td></tr>
-      <tr><td>UI / HUD</td><td><span class="badge green">Complete</span></td><td>HP/MP bars, zone name, control bar, gamepad HUD</td></tr>
+      <tr><td>UI / HUD</td><td><span class="badge green">Complete</span></td><td>HP/MP bars, zone name, control bar, gamepad HUD, spawn pressure bar</td></tr>
       <tr><td>Save / Load</td><td><span class="badge green">Complete</span></td><td>localStorage, position + stats + character</td></tr>
       <tr><td>Pause Menu</td><td><span class="badge green">Complete</span></td><td>Resume, character view, save, main menu</td></tr>
-      <tr><td>Spawn System</td><td><span class="badge yellow">Built, Not Wired</span></td><td>SpawnSystem class exists but not imported by Game</td></tr>
-      <tr><td>Upgrade System</td><td><span class="badge yellow">Built, Not Wired</span></td><td>UPGRADES defined, no UI or trigger</td></tr>
+      <tr><td>Spawn System</td><td><span class="badge green">Complete</span></td><td>Pressure-based spawning, level progression, survival countdown, HUD bar</td></tr>
+      <tr><td>Upgrade System</td><td><span class="badge green">Complete</span></td><td>HTML overlay with 3 random options, stat display, 8 upgrade types</td></tr>
       <tr><td>NPC Interaction</td><td><span class="badge yellow">Partial</span></td><td>Proximity dialogue only — no talk action or quests</td></tr>
       <tr><td>Shop System</td><td><span class="badge red">Not Started</span></td><td>Shop buildings exist visually, no buy/sell UI</td></tr>
       <tr><td>Quest / Progression</td><td><span class="badge red">Not Started</span></td><td>Zones exist but no quest triggers or story flow</td></tr>
@@ -105,7 +126,90 @@
     </table>
   </div>
 
+  <div class="card full" id="achievements-card">
+    <div class="ach-header">
+      <h2>Achievements</h2>
+      <button class="reload-btn" onclick="loadAchievements()">Reload Data</button>
+    </div>
+    <div id="ach-content"><p style="color:#8b949e;padding:12px 0;">Loading achievements.json...</p></div>
+  </div>
+
 </div>
+
+<script>
+function loadAchievements() {
+  var container = document.getElementById('ach-content');
+  fetch('achievements.json').then(function(r) { return r.json(); }).then(function(data) {
+    var achs = data.achievements || [];
+    var totalPossible = 0;
+    var totalEarned = 0;
+    var earnedCount = 0;
+    var unlocked = [];
+
+    for (var i = 0; i < achs.length; i++) {
+      totalPossible += achs[i].points;
+      if (achs[i].unlocked) {
+        totalEarned += achs[i].points;
+        earnedCount++;
+        unlocked.push(achs[i]);
+      }
+    }
+
+    // Sort unlocked by date descending, take 5 most recent
+    unlocked.sort(function(a, b) {
+      return (b.unlockedAt || '').localeCompare(a.unlockedAt || '');
+    });
+    var recent = unlocked.slice(0, 5);
+
+    var pct = totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0;
+    var barColor = pct >= 75 ? 'var(--green)' : pct >= 40 ? 'var(--yellow)' : 'var(--blue)';
+
+    var html = '';
+    html += '<div class="ach-summary">';
+    html += '  <span class="ach-points">' + totalEarned + ' / ' + totalPossible + ' pts</span>';
+    html += '  <span class="ach-fraction">' + earnedCount + ' / ' + achs.length + ' unlocked</span>';
+    html += '</div>';
+    html += '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%;background:' + barColor + '"></div></div>';
+
+    // Recent unlocked
+    if (recent.length > 0) {
+      html += '<h3 style="font-size:12px;text-transform:uppercase;color:#8b949e;margin:16px 0 8px;letter-spacing:0.5px;">Recent Unlocks</h3>';
+      for (var j = 0; j < recent.length; j++) {
+        var a = recent[j];
+        var date = a.unlockedAt ? new Date(a.unlockedAt).toLocaleDateString() : '';
+        html += '<div class="ach-row">';
+        html += '  <div class="ach-icon unlocked">&#9733;</div>';
+        html += '  <div class="ach-info"><div class="ach-name">' + a.name + '</div><div class="ach-desc">' + a.description + '</div></div>';
+        html += '  <div><div class="ach-pts">+' + a.points + '</div><div class="ach-date">' + date + '</div></div>';
+        html += '</div>';
+      }
+    }
+
+    // Locked achievements preview
+    var locked = achs.filter(function(a) { return !a.unlocked; });
+    if (locked.length > 0) {
+      html += '<h3 style="font-size:12px;text-transform:uppercase;color:#8b949e;margin:16px 0 8px;letter-spacing:0.5px;">Locked (' + locked.length + ')</h3>';
+      var shown = locked.slice(0, 5);
+      for (var k = 0; k < shown.length; k++) {
+        var b = shown[k];
+        html += '<div class="ach-row locked">';
+        html += '  <div class="ach-icon locked">&#128274;</div>';
+        html += '  <div class="ach-info"><div class="ach-name">' + b.name + '</div><div class="ach-desc">' + b.description + '</div></div>';
+        html += '  <div><div class="ach-pts">+' + b.points + '</div></div>';
+        html += '</div>';
+      }
+      if (locked.length > 5) {
+        html += '<p style="color:#484f58;font-size:12px;padding:8px 0;">...and ' + (locked.length - 5) + ' more</p>';
+      }
+    }
+
+    container.innerHTML = html;
+  }).catch(function(err) {
+    container.innerHTML = '<p style="color:var(--red);padding:12px 0;">Failed to load achievements.json: ' + err.message + '</p>';
+  });
+}
+loadAchievements();
+</script>
 
 </body>
 </html>

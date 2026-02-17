@@ -17,6 +17,8 @@ import { UI } from './ui.js';
 import { PauseManager } from './pause.js';
 import { LockOnSystem } from './lockon.js';
 import { WorldManager } from './world.js';
+import { SpawnSystem } from './spawn.js';
+import { UpgradeSystem } from './upgrade.js';
 import { normalize } from './utils.js';
 
 const State = Object.freeze({
@@ -43,6 +45,10 @@ export class Game {
         this.player = null;
         this.charKey = null;
         this.enemyManager = new EnemyManager();
+        this.spawnSystem = new SpawnSystem(this.enemyManager);
+        this.upgradeSystem = new UpgradeSystem();
+        this.spawnLevel = 1;
+        this.upgradeActive = false;
         this.lastTime = 0;
 
         // NPC dialogue state
@@ -133,7 +139,8 @@ export class Game {
             y: this.player.y,
             hp: this.player.hp,
             mp: this.player.mp,
-            stats: { ...this.player.stats }
+            stats: { ...this.player.stats },
+            spawnLevel: this.spawnLevel
         };
         localStorage.setItem('zelda_save', JSON.stringify(saveData));
 
@@ -166,6 +173,10 @@ export class Game {
         this.charKey = null;
         this.nearbyNPC = null;
         this.enemyManager.clear();
+        this.spawnSystem.reset(1);
+        this.spawnLevel = 1;
+        this.upgradeActive = false;
+        if (this.upgradeSystem.overlay) this.upgradeSystem._hide();
         this.lockOnSystem.target = null;
         this.state = State.CHARACTER_SELECT;
         this._showCharacterSelect();
@@ -187,10 +198,14 @@ export class Game {
 
     _update(dt) {
         // ── Pause toggle ──
-        if (this.state === State.PLAYING && this.input.actionPressed('pause')) {
+        if (this.state === State.PLAYING && !this.upgradeActive && this.input.actionPressed('pause')) {
             this.pauseManager.toggle();
         }
         if (this.pauseManager.paused) {
+            this.input.endFrame();
+            return;
+        }
+        if (this.upgradeActive) {
             this.input.endFrame();
             return;
         }
@@ -334,6 +349,23 @@ export class Game {
         this.camera.follow(this.player);
         this.enemyManager.update(dt, this.player);
 
+        // ── Spawn system (only outside Millhaven) ──
+        const currentZone = this.world.getZoneName(this.player.x, this.player.y);
+        if (currentZone !== 'Millhaven') {
+            this.spawnSystem.update(dt, this.camera);
+        }
+
+        // Level complete → upgrade screen
+        if (this.spawnSystem.levelComplete) {
+            this.enemyManager.clear();
+            this.upgradeActive = true;
+            this.upgradeSystem.show(this.player, () => {
+                this.upgradeActive = false;
+                this.spawnLevel++;
+                this.spawnSystem.reset(this.spawnLevel);
+            });
+        }
+
         // ── NPC proximity ──
         this.nearbyNPC = this.world.getNearbyNPC(this.player.x, this.player.y, 60);
 
@@ -384,6 +416,9 @@ export class Game {
         if (this.player) {
             const zoneName = this.world.getZoneName(this.player.x, this.player.y);
             this.ui.renderHUD(this.player, zoneName, this.lockOnSystem);
+            if (this.state === State.PLAYING && zoneName !== 'Millhaven') {
+                this.ui.renderSpawnHUD(this.spawnSystem);
+            }
         }
 
         // Controller HUD (left side, always visible during play)
@@ -609,6 +644,9 @@ export class Game {
         this.player.x = SPAWN_X;
         this.player.y = SPAWN_Y;
         this.enemyManager.clear();
+        this.spawnLevel = 1;
+        this.spawnSystem.reset(1);
+        this.upgradeActive = false;
         this.lockOnSystem.target = null;
         this.nearbyNPC = null;
         this.state = State.PLAYING;
@@ -636,6 +674,9 @@ export class Game {
             Object.assign(this.player.stats, saveData.stats);
         }
         this.enemyManager.clear();
+        this.spawnLevel = saveData.spawnLevel || 1;
+        this.spawnSystem.reset(this.spawnLevel);
+        this.upgradeActive = false;
         this.lockOnSystem.target = null;
         this.nearbyNPC = null;
         this.state = State.PLAYING;
@@ -646,6 +687,10 @@ export class Game {
     _bindRestart() {
         const handler = () => {
             if (this.state === State.GAME_OVER) {
+                this.enemyManager.clear();
+                this.spawnSystem.reset(1);
+                this.spawnLevel = 1;
+                this.upgradeActive = false;
                 this.state = State.CHARACTER_SELECT;
                 this._showCharacterSelect();
             }
