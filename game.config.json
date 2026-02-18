@@ -9,7 +9,8 @@
 	"testCommand": "node tests/run-tests.mjs",
 	"metadata": {
 		"lastGameplayUpdate": "2026-02-17",
-		"lastArtUpdate": "",
+		"lastArtUpdate": "2026-02-18",
+		"asset_stage": "placeholder_v1",
 		"buildVersion": "0.2.0",
 		"progressPercent": 45
 	}

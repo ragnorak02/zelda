@@ -16,7 +16,7 @@
  */
 
 import { WORLD, PLAYER_RADIUS, MP_CONFIG } from './constants.js';
-import { clamp, normalize } from './utils.js';
+import { clamp, normalize, lightenColor, darkenColor } from './utils.js';
 import { EffectEngine } from './weapons.js';
 import { DodgeSystem } from './dodge.js';
 import { PlayerStateMachine } from './playerState.js';
@@ -215,11 +215,10 @@ export class Player {
         // ── Landing squash ──
         let scaleX = 1, scaleY = 1;
         if (sm.landSquash > 0) {
-            const t = sm.landSquash / 0.1; // 0..1
-            scaleX = 1 + t * 0.3;   // wider
-            scaleY = 1 - t * 0.25;  // shorter
+            const t = sm.landSquash / 0.1;
+            scaleX = 1 + t * 0.3;
+            scaleY = 1 - t * 0.25;
         } else if (z > 0) {
-            // Slight scale increase while airborne
             scaleX = 1.05;
             scaleY = 1.05;
         }
@@ -234,31 +233,120 @@ export class Player {
             ctx.globalAlpha = 0.4;
         }
 
-        // Draw player offset upward by z
         const drawY = s.y - z;
 
         ctx.save();
         ctx.translate(s.x, drawY);
         ctx.scale(scaleX, scaleY);
 
-        // Body
-        ctx.fillStyle = this.color;
+        const r = this.radius;
+        const fx = this.facing.x;
+        const fy = this.facing.y;
+        const time = performance.now() / 1000;
+        const isMoving = this.moveDir.x !== 0 || this.moveDir.y !== 0;
+        const bob = isMoving ? Math.sin(time * 10) * 1.2 : 0;
+
+        // ── Ground contact shadow ──
+        if (z === 0) {
+            ctx.save();
+            ctx.globalAlpha = 0.18;
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.ellipse(0, r * 0.35, r * 0.85, r * 0.28, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // ── Body ──
+        const bodyGrad = ctx.createRadialGradient(-2, bob - 2, 1, 0, bob, r);
+        bodyGrad.addColorStop(0, lightenColor(this.color, 35));
+        bodyGrad.addColorStop(0.7, this.color);
+        bodyGrad.addColorStop(1, darkenColor(this.color, 50));
+        ctx.fillStyle = bodyGrad;
         ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.arc(0, bob, r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = darkenColor(this.color, 60);
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Facing indicator (small dot in facing direction)
-        ctx.fillStyle = '#fff';
+        // ── Class accent on body ──
+        if (this.classKey === 'fighter') {
+            // Belt / armor band
+            ctx.strokeStyle = darkenColor(this.color, 30);
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, bob, r * 0.65, Math.PI * 0.3, Math.PI * 0.7);
+            ctx.stroke();
+            // Shoulder pads
+            const perpX = -fy;
+            const perpY = fx;
+            ctx.fillStyle = darkenColor(this.color, 25);
+            ctx.beginPath();
+            ctx.arc(perpX * r * 0.7, bob + perpY * r * 0.7, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(-perpX * r * 0.7, bob - perpY * r * 0.7, 4, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (this.classKey === 'mage') {
+            // Arcane inner glow
+            const pulse = 0.15 + Math.sin(time * 3) * 0.08;
+            ctx.globalAlpha = pulse;
+            ctx.fillStyle = lightenColor(this.color, 80);
+            ctx.beginPath();
+            ctx.arc(0, bob, r * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        } else if (this.classKey === 'celestial') {
+            // Nature leaf marks
+            ctx.strokeStyle = lightenColor(this.color, 50);
+            ctx.lineWidth = 1.5;
+            const leafA = time * 0.5;
+            for (let i = 0; i < 3; i++) {
+                const a = leafA + i * (Math.PI * 2 / 3);
+                const lx = Math.cos(a) * r * 0.45;
+                const ly = bob + Math.sin(a) * r * 0.45;
+                ctx.beginPath();
+                ctx.ellipse(lx, ly, 3, 1.5, a, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        // ── Head ──
+        const headR = r * 0.52;
+        const headX = fx * r * 0.15;
+        const headY = -r * 0.42 + fy * r * 0.15 + bob;
+        const headGrad = ctx.createRadialGradient(headX - 1, headY - 1, 1, headX, headY, headR);
+        headGrad.addColorStop(0, lightenColor(this.color, 55));
+        headGrad.addColorStop(1, this.color);
+        ctx.fillStyle = headGrad;
         ctx.beginPath();
-        ctx.arc(
-            this.facing.x * this.radius * 0.6,
-            this.facing.y * this.radius * 0.6,
-            3, 0, Math.PI * 2
-        );
+        ctx.arc(headX, headY, headR, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = darkenColor(this.color, 40);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // ── Eyes ──
+        const perpEyeX = -fy;
+        const perpEyeY = fx;
+        const eyeSpread = headR * 0.4;
+        const eyeFwd = headR * 0.32;
+
+        for (let side = -1; side <= 1; side += 2) {
+            const ex = headX + fx * eyeFwd + perpEyeX * eyeSpread * side;
+            const ey = headY + fy * eyeFwd + perpEyeY * eyeSpread * side;
+            // White
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(ex, ey, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+            // Pupil
+            ctx.fillStyle = '#111';
+            ctx.beginPath();
+            ctx.arc(ex + fx * 0.8, ey + fy * 0.8, 1.1, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         ctx.restore();
         ctx.globalAlpha = 1;

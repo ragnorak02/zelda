@@ -443,7 +443,7 @@ export class UI {
 
         ctx.fillStyle = '#999';
         ctx.font = '16px monospace';
-        ctx.fillText('Click or tap to restart', w / 2, h / 2 + 25);
+        ctx.fillText('Click, tap, or press A to restart', w / 2, h / 2 + 25);
     }
 
     // ── Virtual joystick (mobile) ──

@@ -14,7 +14,7 @@
  */
 
 import { ENEMY_TYPES, WORLD } from './constants.js';
-import { distance, normalize, clamp } from './utils.js';
+import { distance, normalize, clamp, lightenColor, darkenColor } from './utils.js';
 
 let nextId = 0;
 
@@ -265,6 +265,8 @@ export class Enemy {
         if (!camera.isVisible(this.x, this.y, this.radius + 10)) return;
 
         const s = camera.worldToScreen(this.x, this.y);
+        const r = this.radius;
+        const time = performance.now() / 1000;
 
         // Melee windup telegraph — pulsing glow
         if (this.behavior === 'melee' && this.meleeState === 'windup') {
@@ -272,56 +274,292 @@ export class Enemy {
             ctx.globalAlpha = pulse;
             ctx.fillStyle = '#ff4444';
             ctx.beginPath();
-            ctx.arc(s.x, s.y, this.radius + 8, 0, Math.PI * 2);
+            ctx.arc(s.x, s.y, r + 8, 0, Math.PI * 2);
             ctx.fill();
             ctx.globalAlpha = 1;
         }
 
-        // Melee attack flash — brief red burst
+        // Melee attack flash
         if (this.behavior === 'melee' && this.meleeState === 'attack') {
             ctx.globalAlpha = 0.5;
             ctx.fillStyle = '#ff0000';
             ctx.beginPath();
-            ctx.arc(s.x, s.y, this.radius + 12, 0, Math.PI * 2);
+            ctx.arc(s.x, s.y, r + 12, 0, Math.PI * 2);
             ctx.fill();
             ctx.globalAlpha = 1;
         }
 
-        // Slow indicator — blue tint
+        // Slow indicator
         if (this.slowTimer > 0) {
             ctx.globalAlpha = 0.3;
             ctx.fillStyle = '#80deea';
             ctx.beginPath();
-            ctx.arc(s.x, s.y, this.radius + 4, 0, Math.PI * 2);
+            ctx.arc(s.x, s.y, r + 4, 0, Math.PI * 2);
             ctx.fill();
             ctx.globalAlpha = 1;
         }
 
-        // Body
-        ctx.fillStyle = this.flashTimer > 0 ? '#fff' : this.color;
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, this.radius, 0, Math.PI * 2);
-        ctx.fill();
+        const flash = this.flashTimer > 0;
 
-        // Ranged indicator — small inner dot
-        if (this.behavior === 'ranged') {
-            ctx.fillStyle = this.def.arrowColor || '#d4a017';
-            ctx.beginPath();
-            ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
-            ctx.fill();
+        // ── Ground shadow ──
+        ctx.save();
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y + r * 0.3, r * 0.8, r * 0.25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // ── Type-specific body ──
+        switch (this.type) {
+            case 'shambler': this._renderShambler(ctx, s, r, flash, time); break;
+            case 'imp':      this._renderImp(ctx, s, r, flash, time); break;
+            case 'brute':    this._renderBrute(ctx, s, r, flash, time); break;
+            case 'archer':   this._renderArcher(ctx, s, r, flash, time); break;
+            default:         this._renderDefault(ctx, s, r, flash); break;
         }
 
         // HP bar (only when damaged)
         if (this.hp < this.maxHp) {
-            const bw = this.radius * 2;
+            const bw = r * 2.2;
             const bh = 3;
             const bx = s.x - bw / 2;
-            const by = s.y - this.radius - 8;
-            ctx.fillStyle = '#333';
+            const by = s.y - r - 10;
+            ctx.fillStyle = '#222';
+            ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+            ctx.fillStyle = '#444';
             ctx.fillRect(bx, by, bw, bh);
-            ctx.fillStyle = '#e74c3c';
-            ctx.fillRect(bx, by, bw * (this.hp / this.maxHp), bh);
+            const hpPct = this.hp / this.maxHp;
+            ctx.fillStyle = hpPct > 0.5 ? '#e74c3c' : '#ff2222';
+            ctx.fillRect(bx, by, bw * hpPct, bh);
         }
+    }
+
+    // ── Shambler: hunched zombie with glowing eyes ──
+    _renderShambler(ctx, s, r, flash, time) {
+        const wobble = Math.sin(time * 3) * 0.8;
+        const c = flash ? '#fff' : this.color;
+
+        // Hunched body (slightly flattened)
+        const grad = ctx.createRadialGradient(s.x - 1, s.y - 1, 1, s.x, s.y, r);
+        grad.addColorStop(0, flash ? '#fff' : lightenColor(this.color, 20));
+        grad.addColorStop(1, flash ? '#ddd' : darkenColor(this.color, 40));
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y + wobble, r, r * 0.85, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = flash ? '#ccc' : darkenColor(this.color, 60);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Dragging arms
+        if (!flash) {
+            ctx.fillStyle = darkenColor(this.color, 20);
+            ctx.beginPath();
+            ctx.ellipse(s.x - r * 0.7, s.y + r * 0.4 + wobble, 4, 3, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(s.x + r * 0.7, s.y + r * 0.5 + wobble, 4, 3, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Glowing eyes
+        ctx.fillStyle = '#ff3333';
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.arc(s.x - 3, s.y - 2 + wobble, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(s.x + 3, s.y - 2 + wobble, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    // ── Imp: small horned demon ──
+    _renderImp(ctx, s, r, flash, time) {
+        const dart = Math.sin(time * 8) * 1;
+        const c = flash ? '#fff' : this.color;
+
+        // Body
+        const grad = ctx.createRadialGradient(s.x, s.y - 1, 1, s.x, s.y, r);
+        grad.addColorStop(0, flash ? '#fff' : lightenColor(this.color, 30));
+        grad.addColorStop(1, flash ? '#ddd' : darkenColor(this.color, 35));
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y + dart, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = flash ? '#ccc' : darkenColor(this.color, 50);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        if (!flash) {
+            // Horns
+            ctx.fillStyle = darkenColor(this.color, 50);
+            ctx.beginPath();
+            ctx.moveTo(s.x - 4, s.y - r * 0.6 + dart);
+            ctx.lineTo(s.x - 6, s.y - r - 5 + dart);
+            ctx.lineTo(s.x - 1, s.y - r * 0.4 + dart);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(s.x + 4, s.y - r * 0.6 + dart);
+            ctx.lineTo(s.x + 6, s.y - r - 5 + dart);
+            ctx.lineTo(s.x + 1, s.y - r * 0.4 + dart);
+            ctx.fill();
+
+            // Wing stubs
+            ctx.fillStyle = darkenColor(this.color, 25);
+            const wingFlap = Math.sin(time * 12) * 2;
+            ctx.beginPath();
+            ctx.moveTo(s.x - r, s.y + dart);
+            ctx.lineTo(s.x - r - 5, s.y - 4 + wingFlap + dart);
+            ctx.lineTo(s.x - r + 2, s.y - 3 + dart);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(s.x + r, s.y + dart);
+            ctx.lineTo(s.x + r + 5, s.y - 4 - wingFlap + dart);
+            ctx.lineTo(s.x + r - 2, s.y - 3 + dart);
+            ctx.fill();
+        }
+
+        // Eyes — bright yellow
+        ctx.fillStyle = '#ffe033';
+        ctx.beginPath();
+        ctx.arc(s.x - 2.5, s.y - 1 + dart, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(s.x + 2.5, s.y - 1 + dart, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // ── Brute: large hulking shape with shoulders ──
+    _renderBrute(ctx, s, r, flash, time) {
+        const breathe = Math.sin(time * 2) * 0.5;
+
+        // Main body
+        const grad = ctx.createRadialGradient(s.x - 2, s.y - 2, 2, s.x, s.y, r);
+        grad.addColorStop(0, flash ? '#fff' : lightenColor(this.color, 20));
+        grad.addColorStop(0.6, flash ? '#eee' : this.color);
+        grad.addColorStop(1, flash ? '#ccc' : darkenColor(this.color, 50));
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y + breathe, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = flash ? '#bbb' : darkenColor(this.color, 60);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        if (!flash) {
+            // Shoulder pads / spikes
+            ctx.fillStyle = darkenColor(this.color, 30);
+            ctx.beginPath();
+            ctx.arc(s.x - r * 0.75, s.y - r * 0.3 + breathe, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(s.x + r * 0.75, s.y - r * 0.3 + breathe, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Spikes on shoulders
+            ctx.fillStyle = darkenColor(this.color, 55);
+            ctx.beginPath();
+            ctx.moveTo(s.x - r * 0.75, s.y - r * 0.3 - 6 + breathe);
+            ctx.lineTo(s.x - r * 0.75 - 3, s.y - r * 0.3 - 12 + breathe);
+            ctx.lineTo(s.x - r * 0.75 + 3, s.y - r * 0.3 - 6 + breathe);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(s.x + r * 0.75, s.y - r * 0.3 - 6 + breathe);
+            ctx.lineTo(s.x + r * 0.75 + 3, s.y - r * 0.3 - 12 + breathe);
+            ctx.lineTo(s.x + r * 0.75 - 3, s.y - r * 0.3 - 6 + breathe);
+            ctx.fill();
+
+            // Heavy brow
+            ctx.strokeStyle = darkenColor(this.color, 45);
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y - r * 0.15 + breathe, r * 0.45, Math.PI + 0.4, Math.PI * 2 - 0.4);
+            ctx.stroke();
+        }
+
+        // Angry eyes — red slits
+        ctx.fillStyle = '#ff4444';
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 3;
+        ctx.fillRect(s.x - 5, s.y - 3 + breathe, 4, 2);
+        ctx.fillRect(s.x + 1, s.y - 3 + breathe, 4, 2);
+        ctx.shadowBlur = 0;
+    }
+
+    // ── Archer: lean hooded figure with bow ──
+    _renderArcher(ctx, s, r, flash, time) {
+        const c = flash ? '#fff' : this.color;
+
+        // Body
+        const grad = ctx.createRadialGradient(s.x, s.y - 1, 1, s.x, s.y, r);
+        grad.addColorStop(0, flash ? '#fff' : lightenColor(this.color, 25));
+        grad.addColorStop(1, flash ? '#ddd' : darkenColor(this.color, 35));
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = flash ? '#ccc' : darkenColor(this.color, 50);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        if (!flash) {
+            // Hood (darker arc over top)
+            ctx.fillStyle = darkenColor(this.color, 35);
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, r, Math.PI + 0.3, -0.3);
+            ctx.lineTo(s.x + r * 0.5, s.y - 1);
+            ctx.lineTo(s.x - r * 0.5, s.y - 1);
+            ctx.fill();
+
+            // Bow (arc on right side)
+            ctx.strokeStyle = '#8b6914';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(s.x + r + 3, s.y, r * 0.7, Math.PI * 0.6, Math.PI * 1.4);
+            ctx.stroke();
+
+            // Bow string
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            const bowR = r * 0.7;
+            ctx.moveTo(
+                s.x + r + 3 + Math.cos(Math.PI * 0.6) * bowR,
+                s.y + Math.sin(Math.PI * 0.6) * bowR
+            );
+            ctx.lineTo(
+                s.x + r + 3 + Math.cos(Math.PI * 1.4) * bowR,
+                s.y + Math.sin(Math.PI * 1.4) * bowR
+            );
+            ctx.stroke();
+
+            // Quiver (small rect on back)
+            ctx.fillStyle = darkenColor(this.color, 20);
+            ctx.fillRect(s.x - r - 2, s.y - 4, 3, 8);
+            // Arrow tips poking out
+            ctx.fillStyle = '#d4a017';
+            ctx.fillRect(s.x - r - 2, s.y - 6, 3, 2);
+        }
+
+        // Eyes — sharp green
+        ctx.fillStyle = '#44ff88';
+        ctx.beginPath();
+        ctx.arc(s.x - 2, s.y - 2, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(s.x + 2, s.y - 2, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // ── Fallback ──
+    _renderDefault(ctx, s, r, flash) {
+        ctx.fillStyle = flash ? '#fff' : this.color;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+        ctx.fill();
     }
 }
 
@@ -359,18 +597,49 @@ class Arrow {
         if (!camera.isVisible(this.x, this.y, this.radius + 5)) return;
 
         const s = camera.worldToScreen(this.x, this.y);
+        const angle = Math.atan2(this.dy, this.dx);
+        const r = this.radius;
 
-        // Arrow body — elongated in direction of travel
         ctx.save();
         ctx.translate(s.x, s.y);
-        ctx.rotate(Math.atan2(this.dy, this.dx));
+        ctx.rotate(angle);
 
+        // Motion trail
+        ctx.globalAlpha = 0.15;
         ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.moveTo(this.radius * 2, 0);
-        ctx.lineTo(-this.radius, -this.radius * 0.7);
-        ctx.lineTo(-this.radius, this.radius * 0.7);
+        ctx.moveTo(-r * 2, 0);
+        ctx.lineTo(-r * 6, -r * 0.3);
+        ctx.lineTo(-r * 6, r * 0.3);
         ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Arrow shaft
+        ctx.fillStyle = '#6b4a2e';
+        ctx.fillRect(-r * 2.5, -0.8, r * 4, 1.6);
+
+        // Arrowhead
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.moveTo(r * 2.5, 0);
+        ctx.lineTo(r * 0.8, -r * 0.8);
+        ctx.lineTo(r * 1.2, 0);
+        ctx.lineTo(r * 0.8, r * 0.8);
+        ctx.closePath();
+        ctx.fill();
+
+        // Fletching
+        ctx.fillStyle = '#aa4444';
+        ctx.beginPath();
+        ctx.moveTo(-r * 2, -r * 0.6);
+        ctx.lineTo(-r * 2.5, -r * 0.1);
+        ctx.lineTo(-r * 1.5, -r * 0.1);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-r * 2, r * 0.6);
+        ctx.lineTo(-r * 2.5, r * 0.1);
+        ctx.lineTo(-r * 1.5, r * 0.1);
         ctx.fill();
 
         ctx.restore();

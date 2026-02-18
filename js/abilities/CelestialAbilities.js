@@ -122,41 +122,85 @@ class FairyCompanion {
 
     render(ctx, camera) {
         const cfg = this.cfg;
+        const time = performance.now();
 
-        // Trail
+        // Trail with sparkle
         for (const t of this.trail) {
-            const s = camera.worldToScreen(t.x, t.y);
-            ctx.globalAlpha = t.alpha * 0.3;
+            const ts = camera.worldToScreen(t.x, t.y);
+            ctx.globalAlpha = t.alpha * 0.25;
             ctx.fillStyle = cfg.color;
             ctx.beginPath();
-            ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
+            ctx.arc(ts.x, ts.y, 2.5, 0, Math.PI * 2);
             ctx.fill();
         }
 
-        // Fairy body
         const s = camera.worldToScreen(this.x, this.y);
-        const pulse = 0.7 + Math.sin(performance.now() / 200) * 0.3;
+        const pulse = 0.7 + Math.sin(time / 200) * 0.3;
+        const wingFlap = Math.sin(time / 80) * 0.4;
 
-        // Glow
-        ctx.globalAlpha = 0.25 * pulse;
-        ctx.fillStyle = cfg.glowColor;
+        // Outer glow halo
+        const glowGrad = ctx.createRadialGradient(s.x, s.y, 2, s.x, s.y, 12);
+        glowGrad.addColorStop(0, `rgba(206, 147, 216, ${0.2 * pulse})`);
+        glowGrad.addColorStop(1, 'rgba(206, 147, 216, 0)');
+        ctx.fillStyle = glowGrad;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, 8, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, 12, 0, Math.PI * 2);
         ctx.fill();
 
-        // Core
+        // Wings
+        ctx.globalAlpha = 0.5 * pulse;
+        ctx.fillStyle = 'rgba(225, 190, 231, 0.6)';
+        ctx.save();
+        ctx.translate(s.x, s.y);
+
+        // Left wing
+        ctx.save();
+        ctx.scale(1, 0.6 + wingFlap);
+        ctx.beginPath();
+        ctx.ellipse(-5, -1, 6, 3.5, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Right wing
+        ctx.save();
+        ctx.scale(1, 0.6 - wingFlap);
+        ctx.beginPath();
+        ctx.ellipse(5, -1, 6, 3.5, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
+
+        // Body core
         ctx.globalAlpha = pulse;
         ctx.fillStyle = cfg.color;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, 3.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Bright center
+        // Inner bright core
         ctx.globalAlpha = 1;
         ctx.fillStyle = '#fff';
         ctx.beginPath();
         ctx.arc(s.x, s.y, 1.5, 0, Math.PI * 2);
         ctx.fill();
+
+        // Orbiting sparkle particles
+        for (let i = 0; i < 3; i++) {
+            const sparkAngle = time / 500 + i * (Math.PI * 2 / 3);
+            const sparkDist = 7 + Math.sin(time / 300 + i) * 2;
+            const sparkAlpha = 0.3 + Math.sin(time / 200 + i * 2) * 0.2;
+            ctx.globalAlpha = sparkAlpha;
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(
+                s.x + Math.cos(sparkAngle) * sparkDist,
+                s.y + Math.sin(sparkAngle) * sparkDist,
+                0.8, 0, Math.PI * 2
+            );
+            ctx.fill();
+        }
 
         ctx.globalAlpha = 1;
     }

@@ -12,6 +12,11 @@ export class UpgradeSystem {
         this.overlay = null;
         this.active = false;
         this.onComplete = null;
+
+        // Gamepad navigation state
+        this._upgradeButtons = [];
+        this._upgradeIndex = 0;
+        this._upgradeStickCooldown = 0;
     }
 
     /** Show the upgrade screen.  Calls `callback` once the player picks. */
@@ -63,6 +68,12 @@ export class UpgradeSystem {
         document.body.appendChild(el);
         this.overlay = el;
 
+        // Capture button refs for gamepad navigation
+        this._upgradeButtons = Array.from(el.querySelectorAll('.upgrade-option'));
+        this._upgradeIndex = 0;
+        this._upgradeStickCooldown = 0;
+        this._updateUpgradeHighlight();
+
         // Button handlers
         el.querySelectorAll('.upgrade-option').forEach((btn, i) => {
             btn.addEventListener('click', () => {
@@ -98,7 +109,63 @@ export class UpgradeSystem {
             this.overlay.remove();
             this.overlay = null;
         }
+        this._upgradeButtons = [];
         this.active = false;
         if (this.onComplete) this.onComplete();
+    }
+
+    // ── Gamepad navigation ──
+
+    updateGamepad(dt, input) {
+        if (!this.overlay || this._upgradeButtons.length === 0) return;
+
+        // Cooldown
+        if (this._upgradeStickCooldown > 0) {
+            this._upgradeStickCooldown -= dt;
+        }
+
+        // Read D-pad / left stick
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        let gp = null;
+        for (const g of gamepads) {
+            if (g && g.connected) { gp = g; break; }
+        }
+
+        if (gp && this._upgradeStickCooldown <= 0) {
+            const dLeft = gp.buttons[14] && gp.buttons[14].pressed;
+            const dRight = gp.buttons[15] && gp.buttons[15].pressed;
+            const lx = gp.axes[0] || 0;
+            const stickLeft = lx < -0.5;
+            const stickRight = lx > 0.5;
+
+            let moved = false;
+            if (dLeft || stickLeft) {
+                this._upgradeIndex = Math.max(0, this._upgradeIndex - 1);
+                moved = true;
+            } else if (dRight || stickRight) {
+                this._upgradeIndex = Math.min(this._upgradeButtons.length - 1, this._upgradeIndex + 1);
+                moved = true;
+            }
+
+            if (moved) {
+                this._upgradeStickCooldown = 0.2;
+                this._updateUpgradeHighlight();
+            }
+        }
+
+        // A button → click selected button
+        if (input.actionPressed('jump')) {
+            const btn = this._upgradeButtons[this._upgradeIndex];
+            if (btn) btn.click();
+        }
+    }
+
+    _updateUpgradeHighlight() {
+        for (const btn of this._upgradeButtons) {
+            btn.classList.remove('gp-selected');
+        }
+        if (this._upgradeButtons[this._upgradeIndex]) {
+            this._upgradeButtons[this._upgradeIndex].classList.add('gp-selected');
+        }
     }
 }

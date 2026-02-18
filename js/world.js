@@ -12,7 +12,7 @@
  * can walk inside.  NPCs stand around the town and inside shops.
  */
 
-import { clamp } from './utils.js';
+import { clamp, lightenColor, darkenColor } from './utils.js';
 
 // ── NPC definitions ──
 
@@ -441,8 +441,30 @@ export class WorldManager {
         for (const bld of this.buildings) {
             if (!camera.isVisible(bld.x + bld.w / 2, bld.y + bld.h / 2, Math.max(bld.w, bld.h))) continue;
             const s = camera.worldToScreen(bld.x, bld.y);
-            ctx.fillStyle = bld.type === 'shop' ? '#2d3a26' : '#3a2d20';
+            const baseColor = bld.type === 'shop' ? '#2d3a26' : '#3a2d20';
+            ctx.fillStyle = baseColor;
             ctx.fillRect(s.x, s.y, bld.w, bld.h);
+
+            // Wood plank pattern
+            const plankH = 10;
+            ctx.strokeStyle = bld.type === 'shop' ? 'rgba(30,50,20,0.3)' : 'rgba(50,30,15,0.3)';
+            ctx.lineWidth = 0.5;
+            for (let py = 0; py < bld.h; py += plankH) {
+                ctx.beginPath();
+                ctx.moveTo(s.x, s.y + py);
+                ctx.lineTo(s.x + bld.w, s.y + py);
+                ctx.stroke();
+            }
+
+            // Doorway highlight
+            const doorSide = bld.doorSide;
+            ctx.fillStyle = 'rgba(255,200,100,0.04)';
+            if (doorSide === 'south') {
+                ctx.fillRect(s.x + bld.w * 0.3, s.y + bld.h - 5, bld.w * 0.4, 5);
+            } else if (doorSide === 'north') {
+                ctx.fillRect(s.x + bld.w * 0.3, s.y, bld.w * 0.4, 5);
+            }
+
             ctx.strokeStyle = 'rgba(255,255,255,0.06)';
             ctx.lineWidth = 1;
             ctx.strokeRect(s.x, s.y, bld.w, bld.h);
@@ -452,8 +474,52 @@ export class WorldManager {
     _ground(ctx, camera, wx, wy, ww, wh, color) {
         const tl = camera.worldToScreen(wx, wy);
         const br = camera.worldToScreen(wx + ww, wy + wh);
+        const sw = br.x - tl.x;
+        const sh = br.y - tl.y;
+
+        // Base fill
         ctx.fillStyle = color;
-        ctx.fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+        ctx.fillRect(tl.x, tl.y, sw, sh);
+
+        // Edge gradient for depth
+        const edgeGrad = ctx.createLinearGradient(tl.x, tl.y, tl.x, tl.y + 8);
+        edgeGrad.addColorStop(0, 'rgba(255,255,255,0.04)');
+        edgeGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = edgeGrad;
+        ctx.fillRect(tl.x, tl.y, sw, 8);
+
+        // Subtle grass/stone detail (sparse for performance)
+        const isTown = color === '#24241f';
+        ctx.fillStyle = isTown ? 'rgba(60,55,45,0.3)' : 'rgba(40,55,30,0.25)';
+        // Use world coords for consistent placement
+        const step = 40;
+        const startWX = Math.floor(wx / step) * step;
+        const startWY = Math.floor(wy / step) * step;
+        for (let gx = startWX; gx < wx + ww; gx += step) {
+            for (let gy = startWY; gy < wy + wh; gy += step) {
+                // Deterministic pseudo-random
+                const hash = ((gx * 73 + gy * 137) & 0xff) / 255;
+                if (hash > 0.6) {
+                    const gs = camera.worldToScreen(gx, gy);
+                    if (isTown) {
+                        // Small stone marks
+                        ctx.fillRect(gs.x, gs.y, 3, 2);
+                    } else {
+                        // Grass tufts
+                        ctx.beginPath();
+                        ctx.moveTo(gs.x, gs.y);
+                        ctx.lineTo(gs.x - 2, gs.y - 4);
+                        ctx.lineTo(gs.x + 1, gs.y);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.moveTo(gs.x + 3, gs.y + 1);
+                        ctx.lineTo(gs.x + 4, gs.y - 3);
+                        ctx.lineTo(gs.x + 5, gs.y + 1);
+                        ctx.fill();
+                    }
+                }
+            }
+        }
     }
 
     /** Render obstacles, signs, and NPCs. */
@@ -496,21 +562,81 @@ export class WorldManager {
 
     _renderTree(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
-        ctx.fillStyle = '#5a3d1e';
-        ctx.fillRect(s.x - 3, s.y - 3, 6, 6);
-        ctx.fillStyle = '#2d5a1e';
+        const r = obs.radius;
+
+        // Trunk (tapered)
+        ctx.fillStyle = '#4a2d14';
         ctx.beginPath();
-        ctx.arc(s.x, s.y, obs.radius, 0, Math.PI * 2);
+        ctx.moveTo(s.x - 3, s.y + 3);
+        ctx.lineTo(s.x - 2, s.y - 3);
+        ctx.lineTo(s.x + 2, s.y - 3);
+        ctx.lineTo(s.x + 3, s.y + 3);
         ctx.fill();
-        ctx.strokeStyle = '#1a3d12';
+
+        // Canopy shadow layer
+        ctx.fillStyle = '#1a4012';
+        ctx.beginPath();
+        ctx.arc(s.x + 1, s.y + 1, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Main canopy with gradient
+        const grad = ctx.createRadialGradient(s.x - r * 0.3, s.y - r * 0.3, r * 0.1, s.x, s.y, r);
+        grad.addColorStop(0, '#3d7a22');
+        grad.addColorStop(0.6, '#2d5a1e');
+        grad.addColorStop(1, '#1a4012');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Leaf highlight clusters
+        ctx.fillStyle = '#4a8a2e';
+        ctx.beginPath();
+        ctx.arc(s.x - r * 0.3, s.y - r * 0.35, r * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(s.x + r * 0.25, s.y - r * 0.2, r * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Outline
+        ctx.strokeStyle = '#163a0e';
         ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
         ctx.stroke();
     }
 
     _renderWall(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
+        // Base stone wall
         ctx.fillStyle = '#5a4a3a';
         ctx.fillRect(s.x, s.y, obs.w, obs.h);
+
+        // Brick pattern
+        ctx.strokeStyle = '#4a3a2a';
+        ctx.lineWidth = 0.5;
+        const brickH = 6;
+        const brickW = 10;
+        for (let row = 0; row < obs.h; row += brickH) {
+            const offset = (Math.floor(row / brickH) % 2) * (brickW / 2);
+            for (let col = -brickW; col < obs.w + brickW; col += brickW) {
+                const bx = s.x + col + offset;
+                if (bx + brickW > s.x && bx < s.x + obs.w) {
+                    ctx.strokeRect(
+                        Math.max(s.x, bx), s.y + row,
+                        Math.min(brickW, s.x + obs.w - Math.max(s.x, bx)), brickH
+                    );
+                }
+            }
+        }
+
+        // Top highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fillRect(s.x, s.y, obs.w, 2);
+        // Bottom shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(s.x, s.y + obs.h - 2, obs.w, 2);
+
         ctx.strokeStyle = '#3d2a1a';
         ctx.lineWidth = 1;
         ctx.strokeRect(s.x, s.y, obs.w, obs.h);
@@ -518,95 +644,266 @@ export class WorldManager {
 
     _renderRock(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
-        ctx.fillStyle = '#666';
+        const r = obs.radius;
+
+        // Irregular polygon (seeded by position for consistency)
+        const seed = (obs.x * 7 + obs.y * 13) | 0;
+        const points = 7;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, obs.radius, 0, Math.PI * 2);
+        for (let i = 0; i < points; i++) {
+            const angle = (i / points) * Math.PI * 2;
+            const vary = 0.75 + ((seed + i * 31) % 100) / 200;
+            const px = s.x + Math.cos(angle) * r * vary;
+            const py = s.y + Math.sin(angle) * r * vary;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+
+        // Gradient fill
+        const grad = ctx.createRadialGradient(s.x - r * 0.25, s.y - r * 0.25, 1, s.x, s.y, r);
+        grad.addColorStop(0, '#888');
+        grad.addColorStop(0.5, '#666');
+        grad.addColorStop(1, '#4a4a4a');
+        ctx.fillStyle = grad;
         ctx.fill();
-        ctx.strokeStyle = '#555';
+        ctx.strokeStyle = '#3a3a3a';
         ctx.lineWidth = 1;
         ctx.stroke();
+
+        // Highlight mark
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.beginPath();
+        ctx.arc(s.x - r * 0.2, s.y - r * 0.2, r * 0.35, 0, Math.PI * 2);
+        ctx.fill();
     }
 
     _renderWell(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
-        ctx.strokeStyle = '#888';
-        ctx.lineWidth = 4;
+        const r = obs.radius;
+
+        // Water with shimmer
+        const shimmer = Math.sin(performance.now() / 500) * 0.1;
+        const waterGrad = ctx.createRadialGradient(s.x - 2, s.y - 2, 1, s.x, s.y, r - 3);
+        waterGrad.addColorStop(0, '#3a7aaa');
+        waterGrad.addColorStop(0.5 + shimmer, '#2a5a8a');
+        waterGrad.addColorStop(1, '#1a3a5a');
+        ctx.fillStyle = waterGrad;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, obs.radius, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillStyle = '#2a5a8a';
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, obs.radius - 2, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, r - 3, 0, Math.PI * 2);
         ctx.fill();
+
+        // Stone ring
+        ctx.strokeStyle = '#777';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Stone highlight
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r, -0.8, 0.8);
+        ctx.stroke();
+
+        // Rope across top
+        ctx.strokeStyle = '#8b6a3e';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(s.x - r + 2, s.y);
+        ctx.quadraticCurveTo(s.x, s.y + 3, s.x + r - 2, s.y);
+        ctx.stroke();
+
+        // Bucket hint
+        ctx.fillStyle = '#6b4a2e';
+        ctx.fillRect(s.x - 2, s.y - 1, 4, 4);
     }
 
     _renderFairyTree(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
-        const pulse = 0.7 + Math.sin(performance.now() / 800) * 0.3;
+        const r = obs.radius;
+        const time = performance.now();
+        const pulse = 0.7 + Math.sin(time / 800) * 0.3;
 
-        // Glow aura
-        ctx.globalAlpha = 0.15 * pulse;
-        ctx.fillStyle = '#88ffaa';
+        // Outer glow aura
+        const glowGrad = ctx.createRadialGradient(s.x, s.y, r, s.x, s.y, r + 30);
+        glowGrad.addColorStop(0, `rgba(100, 255, 150, ${0.12 * pulse})`);
+        glowGrad.addColorStop(1, 'rgba(100, 255, 150, 0)');
+        ctx.fillStyle = glowGrad;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, obs.radius + 20, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, r + 30, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Root tendrils
+        ctx.strokeStyle = '#5a3a1e';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 5; i++) {
+            const angle = (i / 5) * Math.PI * 2 + 0.3;
+            ctx.beginPath();
+            ctx.moveTo(s.x + Math.cos(angle) * 6, s.y + Math.sin(angle) * 6);
+            ctx.quadraticCurveTo(
+                s.x + Math.cos(angle) * r * 0.6, s.y + Math.sin(angle) * r * 0.8,
+                s.x + Math.cos(angle) * r * 0.9, s.y + Math.sin(angle) * r * 0.9
+            );
+            ctx.stroke();
+        }
+
+        // Thick trunk
+        const trunkGrad = ctx.createLinearGradient(s.x - 10, s.y, s.x + 10, s.y);
+        trunkGrad.addColorStop(0, '#5a3a1e');
+        trunkGrad.addColorStop(0.5, '#7a5a3e');
+        trunkGrad.addColorStop(1, '#4a2a14');
+        ctx.fillStyle = trunkGrad;
+        ctx.beginPath();
+        ctx.moveTo(s.x - 12, s.y + 10);
+        ctx.lineTo(s.x - 8, s.y - 12);
+        ctx.lineTo(s.x + 8, s.y - 12);
+        ctx.lineTo(s.x + 12, s.y + 10);
+        ctx.fill();
+
+        // Canopy layers
+        const canopyGrad = ctx.createRadialGradient(s.x - r * 0.2, s.y - r * 0.2, r * 0.1, s.x, s.y, r);
+        canopyGrad.addColorStop(0, '#2a8a3e');
+        canopyGrad.addColorStop(0.5, '#1a6b2e');
+        canopyGrad.addColorStop(1, '#0d4a1a');
+        ctx.fillStyle = canopyGrad;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Highlight canopy clusters
+        ctx.fillStyle = '#3aaa4e';
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.arc(s.x - r * 0.3, s.y - r * 0.3, r * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(s.x + r * 0.2, s.y - r * 0.15, r * 0.35, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        // Trunk
-        ctx.fillStyle = '#6b4a2e';
-        ctx.fillRect(s.x - 10, s.y - 10, 20, 20);
-
-        // Canopy
-        ctx.fillStyle = '#1a6b2e';
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, obs.radius, 0, Math.PI * 2);
-        ctx.fill();
         ctx.strokeStyle = '#0d4a1a';
         ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Sparkles
-        ctx.fillStyle = `rgba(180, 255, 200, ${0.3 * pulse})`;
-        ctx.beginPath();
-        ctx.arc(s.x - 10, s.y - 8, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(s.x + 12, s.y + 5, 4, 0, Math.PI * 2);
-        ctx.fill();
+        // Animated sparkles
+        for (let i = 0; i < 6; i++) {
+            const sparkAngle = time / 2000 + i * 1.05;
+            const sparkR = r * 0.5 + Math.sin(time / 400 + i * 2) * r * 0.3;
+            const sx = s.x + Math.cos(sparkAngle) * sparkR;
+            const sy = s.y + Math.sin(sparkAngle) * sparkR;
+            const sparkAlpha = (0.3 + Math.sin(time / 300 + i * 1.5) * 0.3) * pulse;
+            const sparkSize = 1.5 + Math.sin(time / 250 + i) * 1;
+
+            ctx.globalAlpha = sparkAlpha;
+            ctx.fillStyle = '#ccffdd';
+            ctx.beginPath();
+            ctx.arc(sx, sy, sparkSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
     }
 
     _renderCaveRock(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
-        ctx.fillStyle = '#3a3a3a';
+        const r = obs.radius;
+
+        // Irregular boulder polygon
+        const seed = (obs.x * 3 + obs.y * 7) | 0;
+        const points = 8;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, obs.radius, 0, Math.PI * 2);
+        for (let i = 0; i < points; i++) {
+            const angle = (i / points) * Math.PI * 2;
+            const vary = 0.8 + ((seed + i * 17) % 100) / 250;
+            const px = s.x + Math.cos(angle) * r * vary;
+            const py = s.y + Math.sin(angle) * r * vary;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+
+        const grad = ctx.createRadialGradient(s.x - r * 0.2, s.y - r * 0.2, 1, s.x, s.y, r);
+        grad.addColorStop(0, '#4a4a4a');
+        grad.addColorStop(0.6, '#333');
+        grad.addColorStop(1, '#1a1a1a');
+        ctx.fillStyle = grad;
         ctx.fill();
-        ctx.strokeStyle = '#222';
+        ctx.strokeStyle = '#151515';
         ctx.lineWidth = 2;
         ctx.stroke();
+
+        // Moss patches
+        ctx.fillStyle = '#2a3a22';
+        ctx.globalAlpha = 0.4;
+        ctx.beginPath();
+        ctx.arc(s.x + r * 0.3, s.y + r * 0.4, r * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
     }
 
     _renderCaveDark(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
-        ctx.fillStyle = '#0a0a0f';
+        const cx = s.x + obs.w / 2;
+        const cy = s.y + obs.h / 2;
+
+        // Dark interior
+        ctx.fillStyle = '#060610';
         ctx.fillRect(s.x, s.y, obs.w, obs.h);
+
+        // Radial darkness fade from center
+        const darkGrad = ctx.createRadialGradient(cx, cy, 5, cx, cy, Math.max(obs.w, obs.h) * 0.6);
+        darkGrad.addColorStop(0, 'rgba(0,0,0,0.6)');
+        darkGrad.addColorStop(1, 'rgba(10,10,20,0)');
+        ctx.fillStyle = darkGrad;
+        ctx.fillRect(s.x - 20, s.y - 20, obs.w + 40, obs.h + 40);
+
+        // Atmospheric purple glow hint
+        ctx.fillStyle = 'rgba(40, 20, 60, 0.15)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 25, 0, Math.PI * 2);
+        ctx.fill();
     }
 
     _renderBridge(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
-        ctx.fillStyle = '#7a5a30';
+
+        // Base wood
+        ctx.fillStyle = '#6a4a25';
         ctx.fillRect(s.x, s.y, obs.w, obs.h);
-        // Plank lines
-        ctx.strokeStyle = '#5a4020';
+
+        // Individual planks with alternating shade
+        const plankW = 18;
+        for (let px = 0; px < obs.w; px += plankW) {
+            const shade = (Math.floor(px / plankW) % 2 === 0) ? '#7a5a30' : '#6a4a28';
+            const pw = Math.min(plankW - 1, obs.w - px);
+            ctx.fillStyle = shade;
+            ctx.fillRect(s.x + px, s.y + 1, pw, obs.h - 2);
+            // Wood grain lines
+            ctx.strokeStyle = 'rgba(90,60,30,0.4)';
+            ctx.lineWidth = 0.5;
+            for (let gy = 0; gy < obs.h; gy += 8) {
+                ctx.beginPath();
+                ctx.moveTo(s.x + px + 2, s.y + gy);
+                ctx.lineTo(s.x + px + pw - 2, s.y + gy + 3);
+                ctx.stroke();
+            }
+        }
+
+        // Plank gaps
+        ctx.strokeStyle = '#3a2a15';
         ctx.lineWidth = 1;
-        for (let px = 0; px < obs.w; px += 20) {
+        for (let px = plankW; px < obs.w; px += plankW) {
             ctx.beginPath();
             ctx.moveTo(s.x + px, s.y);
             ctx.lineTo(s.x + px, s.y + obs.h);
             ctx.stroke();
         }
-        // Railings
-        ctx.strokeStyle = '#6a4a28';
+
+        // Rope railings
+        ctx.strokeStyle = '#8b6a3e';
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(s.x, s.y);
@@ -616,72 +913,161 @@ export class WorldManager {
         ctx.moveTo(s.x, s.y + obs.h);
         ctx.lineTo(s.x + obs.w, s.y + obs.h);
         ctx.stroke();
+
+        // Railing posts
+        ctx.fillStyle = '#5a3a1e';
+        for (let px = 0; px <= obs.w; px += 40) {
+            ctx.fillRect(s.x + px - 2, s.y - 3, 4, 6);
+            ctx.fillRect(s.x + px - 2, s.y + obs.h - 3, 4, 6);
+        }
     }
 
     _renderBarricade(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
-        ctx.fillStyle = '#aa3333';
-        ctx.fillRect(s.x, s.y, obs.w, obs.h);
-        ctx.fillStyle = '#ddddaa';
-        for (let by = 0; by < obs.h; by += 20) {
-            ctx.fillRect(s.x, s.y + by, obs.w, 8);
+
+        // Wooden boards (crossed)
+        ctx.fillStyle = '#8b6a3e';
+        for (let by = 0; by < obs.h; by += 18) {
+            ctx.fillStyle = (Math.floor(by / 18) % 2 === 0) ? '#8b6a3e' : '#7a5a30';
+            ctx.fillRect(s.x, s.y + by, obs.w, 14);
+            // Wood grain
+            ctx.strokeStyle = 'rgba(100,70,40,0.3)';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(s.x + 2, s.y + by + 4);
+            ctx.lineTo(s.x + obs.w - 2, s.y + by + 6);
+            ctx.stroke();
         }
-        ctx.strokeStyle = '#882222';
-        ctx.lineWidth = 2;
+
+        // Danger X marks
+        ctx.strokeStyle = '#cc3333';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(s.x + 3, s.y + 3);
+        ctx.lineTo(s.x + obs.w - 3, s.y + obs.h - 3);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(s.x + obs.w - 3, s.y + 3);
+        ctx.lineTo(s.x + 3, s.y + obs.h - 3);
+        ctx.stroke();
+
+        // Nails
+        ctx.fillStyle = '#666';
+        ctx.beginPath(); ctx.arc(s.x + 5, s.y + 5, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s.x + obs.w - 5, s.y + 5, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s.x + 5, s.y + obs.h - 5, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(s.x + obs.w - 5, s.y + obs.h - 5, 1.5, 0, Math.PI * 2); ctx.fill();
+
+        ctx.strokeStyle = '#5a3a1e';
+        ctx.lineWidth = 1.5;
         ctx.strokeRect(s.x, s.y, obs.w, obs.h);
     }
 
     _renderGlow(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
-        const pulse = 0.5 + Math.sin(performance.now() / 600 + obs.x) * 0.5;
-        ctx.globalAlpha = 0.6 * pulse;
-        ctx.fillStyle = '#aaffcc';
+        const time = performance.now();
+        const pulse = 0.5 + Math.sin(time / 600 + obs.x) * 0.5;
+        const r = obs.radius;
+
+        // Outer glow halo
+        const glowGrad = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, r + 5);
+        glowGrad.addColorStop(0, `rgba(170, 255, 204, ${0.5 * pulse})`);
+        glowGrad.addColorStop(0.6, `rgba(170, 255, 204, ${0.2 * pulse})`);
+        glowGrad.addColorStop(1, 'rgba(170, 255, 204, 0)');
+        ctx.fillStyle = glowGrad;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, obs.radius + 3, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, r + 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core
+        ctx.fillStyle = '#ccffdd';
+        ctx.globalAlpha = 0.8 + pulse * 0.2;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Bright center
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r * 0.25, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
-        ctx.fillStyle = '#ccffdd';
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, obs.radius, 0, Math.PI * 2);
-        ctx.fill();
     }
 
     _renderGap(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
-        // Dark pit
-        ctx.fillStyle = '#080810';
+        const cx = s.x + obs.w / 2;
+        const cy = s.y + obs.h / 2;
+
+        // Deep darkness
+        ctx.fillStyle = '#040408';
         ctx.fillRect(s.x, s.y, obs.w, obs.h);
-        // Edge highlights
-        ctx.strokeStyle = 'rgba(100, 80, 60, 0.6)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(s.x, s.y, obs.w, obs.h);
-        // Inner shadow
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(s.x + 2, s.y + 2, obs.w - 4, obs.h - 4);
+
+        // Depth gradient from center
+        const depthGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, Math.max(obs.w, obs.h) * 0.6);
+        depthGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
+        depthGrad.addColorStop(1, 'rgba(20,15,10,0)');
+        ctx.fillStyle = depthGrad;
+        ctx.fillRect(s.x, s.y, obs.w, obs.h);
+
+        // Crumbling edge (top and left get highlights, bottom and right get shadow)
+        ctx.fillStyle = 'rgba(100, 80, 60, 0.5)';
+        ctx.fillRect(s.x, s.y, obs.w, 2);
+        ctx.fillRect(s.x, s.y, 2, obs.h);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(s.x, s.y + obs.h - 2, obs.w, 2);
+        ctx.fillRect(s.x + obs.w - 2, s.y, 2, obs.h);
+
+        // Jagged edge detail
+        ctx.fillStyle = 'rgba(60, 50, 40, 0.3)';
+        ctx.fillRect(s.x + 3, s.y - 1, 5, 2);
+        ctx.fillRect(s.x + obs.w - 8, s.y - 1, 5, 2);
+        ctx.fillRect(s.x - 1, s.y + 4, 2, 4);
     }
 
     _renderVine(ctx, camera, obs) {
         const s = camera.worldToScreen(obs.x, obs.y);
         const cx = s.x + obs.w / 2;
-        const cy = s.y + obs.h / 2;
+        const sway = Math.sin(performance.now() / 800) * 2;
 
-        // Rope line (vertical)
-        ctx.strokeStyle = '#6b4a2e';
-        ctx.lineWidth = 3;
+        // Main vine rope (wavy)
+        ctx.strokeStyle = '#5a3a1e';
+        ctx.lineWidth = 3.5;
         ctx.beginPath();
         ctx.moveTo(cx, s.y);
-        ctx.lineTo(cx, s.y + obs.h);
+        ctx.quadraticCurveTo(cx + sway * 2, s.y + obs.h * 0.5, cx + sway, s.y + obs.h);
         ctx.stroke();
 
-        // Leaf dots along the rope
-        ctx.fillStyle = '#2d7a1e';
-        for (let i = 0; i < 4; i++) {
-            const ly = s.y + (obs.h / 4) * i + obs.h / 8;
-            const lx = cx + (i % 2 === 0 ? -4 : 4);
+        // Thinner vine wrap
+        ctx.strokeStyle = '#4a6a2e';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx + 2, s.y + 3);
+        ctx.quadraticCurveTo(cx - 3 + sway, s.y + obs.h * 0.4, cx + sway - 1, s.y + obs.h - 3);
+        ctx.stroke();
+
+        // Leaves along the vine
+        for (let i = 0; i < 5; i++) {
+            const t = (i + 0.5) / 5;
+            const ly = s.y + obs.h * t;
+            const lx = cx + sway * t + (i % 2 === 0 ? -1 : 1) * 3;
+            const leafAngle = (i % 2 === 0 ? -0.5 : 0.5) + Math.sin(performance.now() / 600 + i) * 0.1;
+
+            ctx.save();
+            ctx.translate(lx, ly);
+            ctx.rotate(leafAngle);
+            ctx.fillStyle = i % 3 === 0 ? '#3d8a22' : '#2d7a1e';
             ctx.beginPath();
-            ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+            ctx.ellipse(0, 0, 4.5, 2, 0, 0, Math.PI * 2);
             ctx.fill();
+            // Leaf vein
+            ctx.strokeStyle = '#1a5a12';
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(-3, 0);
+            ctx.lineTo(3, 0);
+            ctx.stroke();
+            ctx.restore();
         }
     }
 
@@ -689,31 +1075,154 @@ export class WorldManager {
 
     _renderSign(ctx, camera, sign) {
         const s = camera.worldToScreen(sign.x, sign.y);
-        ctx.fillStyle = '#6b4a2e';
-        ctx.fillRect(s.x - 2, s.y - 8, 4, 16);
-        ctx.fillStyle = '#8b6a3e';
-        ctx.fillRect(s.x - 22, s.y - 16, 44, 14);
-        ctx.strokeStyle = '#5a3a1e';
+
+        // Post with taper
+        ctx.fillStyle = '#5a3a1e';
+        ctx.beginPath();
+        ctx.moveTo(s.x - 2.5, s.y + 10);
+        ctx.lineTo(s.x - 2, s.y - 10);
+        ctx.lineTo(s.x + 2, s.y - 10);
+        ctx.lineTo(s.x + 2.5, s.y + 10);
+        ctx.fill();
+
+        // Board with gradient
+        const boardGrad = ctx.createLinearGradient(s.x, s.y - 18, s.x, s.y - 4);
+        boardGrad.addColorStop(0, '#9b7a4e');
+        boardGrad.addColorStop(1, '#7a5a30');
+        ctx.fillStyle = boardGrad;
+        ctx.fillRect(s.x - 24, s.y - 18, 48, 14);
+
+        // Wood grain on board
+        ctx.strokeStyle = 'rgba(90,60,30,0.3)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(s.x - 22, s.y - 13);
+        ctx.lineTo(s.x + 22, s.y - 12);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(s.x - 22, s.y - 8);
+        ctx.lineTo(s.x + 22, s.y - 9);
+        ctx.stroke();
+
+        // Board outline
+        ctx.strokeStyle = '#4a2a14';
         ctx.lineWidth = 1;
-        ctx.strokeRect(s.x - 22, s.y - 16, 44, 14);
+        ctx.strokeRect(s.x - 24, s.y - 18, 48, 14);
+
+        // Sign text
+        ctx.fillStyle = '#ddd';
+        ctx.font = '6px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(sign.text.substring(0, 12), s.x, s.y - 11);
     }
 
     _renderNPC(ctx, camera, npc) {
         const s = camera.worldToScreen(npc.x, npc.y);
-        // Body
-        ctx.fillStyle = npc.color;
+        const r = npc.radius;
+
+        // Ground shadow
+        ctx.save();
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = '#000';
         ctx.beginPath();
-        ctx.arc(s.x, s.y, npc.radius, 0, Math.PI * 2);
+        ctx.ellipse(s.x, s.y + r * 0.3, r * 0.8, r * 0.25, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
+        ctx.restore();
+
+        // Body with gradient
+        const bodyGrad = ctx.createRadialGradient(s.x - 1, s.y - 1, 1, s.x, s.y, r);
+        bodyGrad.addColorStop(0, lightenColor(npc.color, 40));
+        bodyGrad.addColorStop(0.7, npc.color);
+        bodyGrad.addColorStop(1, darkenColor(npc.color, 40));
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = darkenColor(npc.color, 50);
+        ctx.lineWidth = 1;
         ctx.stroke();
-        // Name tag
+
+        // Role-specific accents
+        const name = npc.name;
+        if (name.includes('Elder')) {
+            // Robe collar
+            ctx.strokeStyle = lightenColor(npc.color, 60);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, r * 0.6, Math.PI + 0.5, -0.5);
+            ctx.stroke();
+            // Staff (vertical line to the side)
+            ctx.strokeStyle = '#8b6a3e';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(s.x + r + 3, s.y - r);
+            ctx.lineTo(s.x + r + 3, s.y + r * 0.5);
+            ctx.stroke();
+            ctx.fillStyle = '#aaccff';
+            ctx.beginPath();
+            ctx.arc(s.x + r + 3, s.y - r - 2, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (name.includes('Shopkeeper')) {
+            // Apron
+            ctx.fillStyle = lightenColor(npc.color, 50);
+            ctx.fillRect(s.x - r * 0.5, s.y, r, r * 0.5);
+        } else if (name.includes('Smith')) {
+            // Hammer
+            ctx.fillStyle = '#888';
+            ctx.fillRect(s.x + r + 1, s.y - 3, 3, 6);
+            ctx.fillStyle = '#666';
+            ctx.fillRect(s.x + r + 4, s.y - 5, 5, 4);
+        } else if (name.includes('Guard')) {
+            // Helmet visor
+            ctx.fillStyle = darkenColor(npc.color, 30);
+            ctx.beginPath();
+            ctx.arc(s.x, s.y - r * 0.3, r * 0.6, Math.PI + 0.3, -0.3);
+            ctx.fill();
+            // Shield
+            ctx.fillStyle = darkenColor(npc.color, 20);
+            ctx.beginPath();
+            ctx.arc(s.x - r - 2, s.y, 5, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (name.includes('Child')) {
+            // Rosy cheeks
+            ctx.fillStyle = 'rgba(255, 150, 150, 0.3)';
+            ctx.beginPath();
+            ctx.arc(s.x - r * 0.4, s.y + 1, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(s.x + r * 0.4, s.y + 1, 2, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (name === 'Lira') {
+            // Flower in hair
+            ctx.fillStyle = '#ff88aa';
+            ctx.beginPath();
+            ctx.arc(s.x + r * 0.5, s.y - r * 0.6, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffcc00';
+            ctx.beginPath();
+            ctx.arc(s.x + r * 0.5, s.y - r * 0.6, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Eyes
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.arc(s.x - r * 0.25, s.y - r * 0.15, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(s.x + r * 0.25, s.y - r * 0.15, 1.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Name tag with background
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        const nameWidth = npc.name.length * 6 + 8;
+        ctx.fillRect(s.x - nameWidth / 2, s.y - r - 18, nameWidth, 13);
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 10px monospace';
+        ctx.font = 'bold 9px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        ctx.fillText(npc.name, s.x, s.y - npc.radius - 6);
+        ctx.fillText(npc.name, s.x, s.y - r - 6);
     }
 
     /** Render NPC dialogue bubble (call after player so it draws on top). */

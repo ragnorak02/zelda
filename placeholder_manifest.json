@@ -1,0 +1,108 @@
+{
+  "pass": "graphics_v1",
+  "date": "2026-02-18",
+  "assets": [
+    {
+      "file": "js/player.js:render()",
+      "replaces": "Single-color arc() circle + white facing dot",
+      "swap_target": "Player character sprite sheet (idle, move per class)",
+      "dimensions": "28x28 (radius 14)"
+    },
+    {
+      "file": "js/enemy.js:_renderShambler()",
+      "replaces": "Red arc() circle",
+      "swap_target": "Shambler enemy sprite (idle, lurch)",
+      "dimensions": "24x24 (radius 12)"
+    },
+    {
+      "file": "js/enemy.js:_renderImp()",
+      "replaces": "Orange arc() circle",
+      "swap_target": "Imp enemy sprite (idle, dart)",
+      "dimensions": "18x18 (radius 9)"
+    },
+    {
+      "file": "js/enemy.js:_renderBrute()",
+      "replaces": "Purple arc() circle",
+      "swap_target": "Brute enemy sprite (idle, breathe)",
+      "dimensions": "36x36 (radius 18)"
+    },
+    {
+      "file": "js/enemy.js:_renderArcher()",
+      "replaces": "Teal arc() circle + inner dot",
+      "swap_target": "Archer enemy sprite (idle, strafe)",
+      "dimensions": "20x20 (radius 10)"
+    },
+    {
+      "file": "js/enemy.js:Arrow.render()",
+      "replaces": "Simple triangle",
+      "swap_target": "Arrow projectile sprite",
+      "dimensions": "16x8 (radius 4)"
+    },
+    {
+      "file": "js/world.js:_renderNPC()",
+      "replaces": "Colored arc() circles (7 NPCs)",
+      "swap_target": "Individual NPC sprites with role-specific details",
+      "dimensions": "20-30px diameter per NPC"
+    },
+    {
+      "file": "js/world.js:_renderTree()",
+      "replaces": "Brown fillRect trunk + green arc() canopy",
+      "swap_target": "Tree sprite with layered canopy",
+      "dimensions": "32-40px diameter per tree"
+    },
+    {
+      "file": "js/world.js:_renderRock()",
+      "replaces": "Grey arc() circle",
+      "swap_target": "Rock sprite (irregular polygon)",
+      "dimensions": "14-20px diameter per rock"
+    },
+    {
+      "file": "js/world.js:_ground()",
+      "replaces": "Flat single-color fillRect",
+      "swap_target": "Tileable ground texture (grass, stone variants)",
+      "dimensions": "Path/town area fills"
+    },
+    {
+      "file": "js/world.js:_renderWall() + building floors",
+      "replaces": "Flat fillRect walls and floors",
+      "swap_target": "Stone brick wall tile + wood plank floor tile",
+      "dimensions": "8px thick walls, 110x90 building floors"
+    },
+    {
+      "file": "js/world.js:_renderWell()",
+      "replaces": "Grey stroke ring + blue fill",
+      "swap_target": "Well sprite with stone ring and water",
+      "dimensions": "24px diameter"
+    },
+    {
+      "file": "js/world.js:_renderSign()",
+      "replaces": "Brown fillRect post + board",
+      "swap_target": "Signpost sprite with readable text",
+      "dimensions": "48x28px"
+    },
+    {
+      "file": "js/world.js:_renderCaveRock() + _renderCaveDark()",
+      "replaces": "Dark grey circles + dark fillRect",
+      "swap_target": "Cave entrance tileset (rocks, darkness)",
+      "dimensions": "32-44px boulders, 100x140 dark area"
+    },
+    {
+      "file": "js/world.js:_renderBridge()",
+      "replaces": "Brown fillRect + line planks",
+      "swap_target": "Bridge tileset (planks, railings, posts)",
+      "dimensions": "200x140"
+    },
+    {
+      "file": "js/abilities/CelestialAbilities.js:FairyCompanion.render()",
+      "replaces": "Layered circles (glow + core + center)",
+      "swap_target": "Fairy sprite with wing animation frames",
+      "dimensions": "16x16"
+    },
+    {
+      "file": "css/style.css:.char-avatar",
+      "replaces": "CSS circle with solid background color",
+      "swap_target": "Character portrait images for select screen",
+      "dimensions": "60x60"
+    }
+  ]
+}

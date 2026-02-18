@@ -28,3 +28,9 @@ Explore the town of Millhaven and surrounding areas, fight enemies, and progress
 - No external dependencies — vanilla JS only
 - Gameplay feel over visual polish
 - Modular systems that can be composed independently
+
+### Graphics Pass V1 — 2026-02-18
+- Replaced 17 primitive/placeholder visuals with improved programmatic rendering
+- Added animation cycles for: player (movement bob, class accents), enemies (wobble, breathing, wing flap), fairy companion (wing flap, orbiting sparkles), vines (sway), fairy tree (sparkle orbit), glow spots (pulse halo)
+- Techniques used: Programmatic (improved canvas drawing with gradients, layered shapes, polygons, detail marks)
+- Asset stage: placeholder_v1 (swap-ready for final PNG sprite art)

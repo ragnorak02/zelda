@@ -202,16 +202,32 @@ export class Game {
             this.pauseManager.toggle();
         }
         if (this.pauseManager.paused) {
+            // B closes character view first, then resume is handled by pauseManager
+            if (this.charViewOverlay && this.input.actionPressed('dodge')) {
+                this._hideCharacterView();
+            } else {
+                this.pauseManager.updateGamepad(dt, this.input);
+            }
             this.input.endFrame();
             return;
         }
         if (this.upgradeActive) {
+            this.upgradeSystem.updateGamepad(dt, this.input);
             this.input.endFrame();
             return;
         }
 
         if (this.state === State.CHARACTER_SELECT) {
             this._updateCharSelectGamepad(dt);
+            this.input.endFrame();
+            return;
+        }
+
+        if (this.state === State.GAME_OVER) {
+            // A button restarts from game over
+            if (this.input.actionPressed('jump')) {
+                this._restart();
+            }
             this.input.endFrame();
             return;
         }
@@ -684,17 +700,18 @@ export class Game {
 
     // ── Restart ──
 
+    _restart() {
+        if (this.state !== State.GAME_OVER) return;
+        this.enemyManager.clear();
+        this.spawnSystem.reset(1);
+        this.spawnLevel = 1;
+        this.upgradeActive = false;
+        this.state = State.CHARACTER_SELECT;
+        this._showCharacterSelect();
+    }
+
     _bindRestart() {
-        const handler = () => {
-            if (this.state === State.GAME_OVER) {
-                this.enemyManager.clear();
-                this.spawnSystem.reset(1);
-                this.spawnLevel = 1;
-                this.upgradeActive = false;
-                this.state = State.CHARACTER_SELECT;
-                this._showCharacterSelect();
-            }
-        };
+        const handler = () => this._restart();
         this.canvas.addEventListener('click', handler);
         this.canvas.addEventListener('touchend', handler);
     }

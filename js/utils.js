@@ -25,3 +25,23 @@ export function randomInRange(min, max) {
 export function lerp(a, b, t) {
     return a + (b - a) * t;
 }
+
+/** Lighten a hex color by amount (0-255). */
+export function lightenColor(hex, amount) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return '#' + [r, g, b].map(c =>
+        Math.min(255, c + amount).toString(16).padStart(2, '0')
+    ).join('');
+}
+
+/** Darken a hex color by amount (0-255). */
+export function darkenColor(hex, amount) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return '#' + [r, g, b].map(c =>
+        Math.max(0, c - amount).toString(16).padStart(2, '0')
+    ).join('');
+}
