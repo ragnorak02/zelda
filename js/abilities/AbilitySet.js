@@ -24,6 +24,18 @@ export class AbilitySet {
     /** Dodge intercept hook. Return true to consume the dodge. */
     onDodge(moveDir) { return false; }
 
+    /** Aerial dodge hook. Return true to consume the dodge. */
+    onAirDodge(moveDir) { return false; }
+
+    /** Called when landing from airborne state. */
+    onLand() {}
+
+    /** Returns true if the character is in a shield/charge state. */
+    isCharging() { return false; }
+
+    /** Returns the shield color for this class, or null. */
+    getShieldColor() { return null; }
+
     /** Per-frame logic (cooldowns, AI, etc). */
     update(dt, enemies) {}
 

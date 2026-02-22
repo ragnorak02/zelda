@@ -8,7 +8,7 @@
  * visit the Fairy Tree, cave, and blocked bridge.
  */
 
-import { WORLD, CHARACTERS } from './constants.js';
+import { WORLD, CHARACTERS, BUILD_VERSION, DEBUG_SPAWN, RUN, GUARD_CONFIG, SHIELD_CONFIG } from './constants.js';
 import { Input } from './input.js';
 import { Camera } from './camera.js';
 import { Player } from './player.js';
@@ -19,11 +19,13 @@ import { LockOnSystem } from './lockon.js';
 import { WorldManager } from './world.js';
 import { SpawnSystem } from './spawn.js';
 import { UpgradeSystem } from './upgrade.js';
-import { normalize } from './utils.js';
+import { StatusMenu } from './statusMenu.js';
+import { normalize, distance } from './utils.js';
 
 const State = Object.freeze({
     CHARACTER_SELECT: 'characterSelect',
     PLAYING: 'playing',
+    PAUSED: 'paused',
     GAME_OVER: 'gameOver'
 });
 
@@ -47,12 +49,24 @@ export class Game {
         this.enemyManager = new EnemyManager();
         this.spawnSystem = new SpawnSystem(this.enemyManager);
         this.upgradeSystem = new UpgradeSystem();
+
+        // Wire world references for zone enforcement
+        this.enemyManager.setWorld(this.world);
+        this.spawnSystem.setWorld(this.world);
         this.spawnLevel = 1;
         this.upgradeActive = false;
         this.lastTime = 0;
 
+        // Dodge / run state machine (B-button tap=roll, hold=run)
+        this._dodgePressTime = 0;
+        this._dodgePending = false;
+
         // NPC dialogue state
         this.nearbyNPC = null;
+
+        // Status menu
+        this.statusMenu = new StatusMenu();
+        this.statusMenuActive = false;
 
         // Character view overlay
         this.charViewOverlay = null;
@@ -86,9 +100,18 @@ export class Game {
     _setupPauseCallbacks() {
         this.pauseManager.setCallbacks({
             onResume: () => {},
-            onViewCharacter: () => this._showCharacterView(),
+            onViewCharacter: () => this._showStatusMenu(),
             onSave: (btn) => this._saveGame(btn),
             onMainMenu: () => this._returnToMainMenu()
+        });
+    }
+
+    _showStatusMenu() {
+        if (this.statusMenuActive) return;
+        if (!this.player) return;
+        this.statusMenuActive = true;
+        this.statusMenu.show(this.player, () => {
+            this.statusMenuActive = false;
         });
     }
 
@@ -133,26 +156,43 @@ export class Game {
     _saveGame(btn) {
         if (!this.player || !this.charKey) return;
 
-        const saveData = {
-            charKey: this.charKey,
-            x: this.player.x,
-            y: this.player.y,
-            hp: this.player.hp,
-            mp: this.player.mp,
-            stats: { ...this.player.stats },
-            spawnLevel: this.spawnLevel
-        };
-        localStorage.setItem('zelda_save', JSON.stringify(saveData));
+        try {
+            const saveData = {
+                charKey: this.charKey,
+                x: this.player.x,
+                y: this.player.y,
+                hp: this.player.hp,
+                mp: this.player.mp,
+                stats: { ...this.player.stats },
+                spawnLevel: this.spawnLevel,
+                level: this.player.level,
+                currentXP: this.player.currentXP,
+                xpToNextLevel: this.player.xpToNextLevel,
+                inventory: this.player.inventory,
+                currentObjective: this.player.currentObjective,
+            };
+            localStorage.setItem('zelda_save', JSON.stringify(saveData));
 
-        // Visual feedback on the button
-        if (btn) {
-            const orig = btn.textContent;
-            btn.textContent = 'Saved!';
-            btn.style.color = '#2ecc71';
-            setTimeout(() => {
-                btn.textContent = orig;
-                btn.style.color = '';
-            }, 1500);
+            if (btn) {
+                const orig = btn.textContent;
+                btn.textContent = 'Saved!';
+                btn.style.color = '#2ecc71';
+                setTimeout(() => {
+                    btn.textContent = orig;
+                    btn.style.color = '';
+                }, 1500);
+            }
+        } catch (err) {
+            console.error('[zelda] Save failed:', err);
+            if (btn) {
+                const orig = btn.textContent;
+                btn.textContent = 'Save Failed';
+                btn.style.color = '#e74c3c';
+                setTimeout(() => {
+                    btn.textContent = orig;
+                    btn.style.color = '';
+                }, 2000);
+            }
         }
     }
 
@@ -168,6 +208,8 @@ export class Game {
 
     _returnToMainMenu() {
         this.pauseManager.resume();
+        if (this.statusMenuActive) this.statusMenu.hide();
+        this.statusMenuActive = false;
         this._hideCharacterView();
         this.player = null;
         this.charKey = null;
@@ -188,10 +230,13 @@ export class Game {
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.05);
         this.lastTime = timestamp;
 
-        this.input.pollGamepad();
-
-        this._update(dt);
-        this._render();
+        try {
+            this.input.pollGamepad();
+            this._update(dt);
+            this._render();
+        } catch (err) {
+            console.error('[zelda] Loop error:', err);
+        }
 
         requestAnimationFrame(t => this._loop(t));
     }
@@ -199,11 +244,22 @@ export class Game {
     _update(dt) {
         // ── Pause toggle ──
         if (this.state === State.PLAYING && !this.upgradeActive && this.input.actionPressed('pause')) {
-            this.pauseManager.toggle();
+            this.pauseManager.pause();
+            this.state = State.PAUSED;
+        } else if (this.state === State.PAUSED && this.input.actionPressed('pause')) {
+            this.pauseManager.resume();
+            this._hideCharacterView();
+            this.state = State.PLAYING;
         }
-        if (this.pauseManager.paused) {
-            // B closes character view first, then resume is handled by pauseManager
-            if (this.charViewOverlay && this.input.actionPressed('dodge')) {
+        // Detect PauseManager-initiated resume (menu Resume button / B press)
+        if (this.state === State.PAUSED && !this.pauseManager.paused) {
+            this._hideCharacterView();
+            this.state = State.PLAYING;
+        }
+        if (this.state === State.PAUSED) {
+            if (this.statusMenuActive) {
+                this.statusMenu.updateGamepad(dt, this.input);
+            } else if (this.charViewOverlay && this.input.actionPressed('dodge')) {
                 this._hideCharacterView();
             } else {
                 this.pauseManager.updateGamepad(dt, this.input);
@@ -240,14 +296,47 @@ export class Game {
         const dodge = this.player.dodgeSystem;
         const abilities = this.player.abilities;
 
-        // ── Dodge (unified: directional roll/blink or backstep) ──
-        if (this.input.actionPressed('dodge') && this.player.stateMachine.canDodge()) {
-            const move = this.input.getMovement();
-            // Let abilities intercept (e.g. fighter shield bash during charge)
-            const intercepted = abilities.onDodge(move);
-            if (!intercepted) {
-                dodge.execute(move, this.player.facing);
+        // ── Dodge / Run (B-button: tap=roll, hold=run) ──
+        if (this.input.actionPressed('dodge')) {
+            this._dodgePressTime = 0;
+            this._dodgePending = true;
+        }
+
+        if (this._dodgePending && this.input.isHeld('dodge')) {
+            this._dodgePressTime += dt;
+            if (this._dodgePressTime >= RUN.holdThreshold && this.player.stateMachine.isGrounded) {
+                // Hold threshold exceeded — enter run mode
+                this._dodgePending = false;
+                this.player.isRunning = true;
+                this.player._runSpeedMult = RUN.speedMult;
             }
+        }
+
+        if (this.input.actionReleased('dodge')) {
+            if (this._dodgePending) {
+                if (this.player.stateMachine.canDodge()) {
+                    // Ground dodge
+                    const move = this.input.getMovement();
+                    const intercepted = abilities.onDodge(move);
+                    if (!intercepted) {
+                        dodge.execute(move, this.player.facing);
+                    }
+                } else if (this.player.stateMachine.isAirborne) {
+                    // Aerial dodge
+                    const move = this.input.getMovement();
+                    abilities.onAirDodge(move);
+                }
+            }
+            // Always end run on release
+            this._dodgePending = false;
+            this.player.isRunning = false;
+            this.player._runSpeedMult = 1;
+        }
+
+        // If dodge system activates (e.g. from ability intercept), cancel run
+        if (dodge.isMovementLocked()) {
+            this.player.isRunning = false;
+            this.player._runSpeedMult = 1;
         }
 
         // ── Jump ──
@@ -261,26 +350,29 @@ export class Game {
             }
         }
 
-        // ── Fighter shield deflection during charge ──
+        // ── Shield pushback during charge (all classes) ──
         if (this.player.abilities.isCharging && this.player.abilities.isCharging()) {
-            const shieldRadius = this.player.radius + 25;
-            const arcHalf = Math.PI / 3;
-            const facingAngle = Math.atan2(this.player.facing.y, this.player.facing.x);
+            const shield = SHIELD_CONFIG[this.player.classKey];
+            if (shield) {
+                const shieldRadius = this.player.radius + 25;
+                const arcHalf = shield.arc / 2;
+                const facingAngle = Math.atan2(this.player.facing.y, this.player.facing.x);
 
-            for (const enemy of this.enemyManager.getEnemies()) {
-                const dx = enemy.x - this.player.x;
-                const dy = enemy.y - this.player.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist > shieldRadius + enemy.radius) continue;
+                for (const enemy of this.enemyManager.getEnemies()) {
+                    const dx = enemy.x - this.player.x;
+                    const dy = enemy.y - this.player.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > shieldRadius + enemy.radius) continue;
 
-                let angleDiff = Math.atan2(dy, dx) - facingAngle;
-                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                    let angleDiff = Math.atan2(dy, dx) - facingAngle;
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
 
-                if (Math.abs(angleDiff) < arcHalf) {
-                    const n = dist > 0 ? { x: dx / dist, y: dy / dist } : { x: 1, y: 0 };
-                    enemy.x += n.x * 200 * dt;
-                    enemy.y += n.y * 200 * dt;
+                    if (Math.abs(angleDiff) < arcHalf) {
+                        const n = dist > 0 ? { x: dx / dist, y: dy / dist } : { x: 1, y: 0 };
+                        enemy.x += n.x * shield.pushForce * dt;
+                        enemy.y += n.y * shield.pushForce * dt;
+                    }
                 }
             }
         }
@@ -362,13 +454,40 @@ export class Game {
 
         // ── Core systems ──
         this.player.update(dt, this.input, this.enemyManager.getEnemies(), this.world);
+        this.camera.updateShake(dt);
         this.camera.follow(this.player);
         this.enemyManager.update(dt, this.player);
 
-        // ── Spawn system (only outside Millhaven) ──
-        const currentZone = this.world.getZoneName(this.player.x, this.player.y);
-        if (currentZone !== 'Millhaven') {
-            this.spawnSystem.update(dt, this.camera);
+        // ── Spawn system (zone restrictions handled inside SpawnSystem) ──
+        this.spawnSystem.update(dt, this.camera, this.player);
+
+        // ── Guard NPC combat ──
+        for (const npc of this.world.npcs) {
+            if (!npc.guard) continue;
+            const gs = npc.guardState;
+            // Tick timers
+            if (gs.attackCooldown > 0) gs.attackCooldown -= dt;
+            if (gs.attackVisual > 0) gs.attackVisual -= dt;
+            // Find nearest enemy in attack radius
+            if (gs.attackCooldown <= 0) {
+                let nearest = null;
+                let nearDist = GUARD_CONFIG.attackRadius;
+                for (const enemy of this.enemyManager.getEnemies()) {
+                    if (enemy.dead) continue;
+                    const d = distance(npc, enemy);
+                    if (d < nearDist) {
+                        nearDist = d;
+                        nearest = enemy;
+                    }
+                }
+                if (nearest) {
+                    nearest.takeDamage(GUARD_CONFIG.damage);
+                    gs.attackCooldown = GUARD_CONFIG.attackCooldown;
+                    gs.attackVisual = GUARD_CONFIG.attackVisualDuration;
+                    gs.targetX = nearest.x;
+                    gs.targetY = nearest.y;
+                }
+            }
         }
 
         // Level complete → upgrade screen
@@ -416,6 +535,10 @@ export class Game {
 
         // Enemies (if any)
         this.enemyManager.render(ctx, this.camera);
+
+        // Debug overlays (gated by flags in constants.js)
+        this.world.renderDebugZones(ctx, this.camera);
+        this._renderSpawnDebug();
 
         // Lock-on reticle
         this.lockOnSystem.render(ctx, this.camera);
@@ -484,6 +607,56 @@ export class Game {
         ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
     }
 
+    _renderSpawnDebug() {
+        if (!DEBUG_SPAWN) return;
+        const ctx = this.ctx;
+        const cam = this.camera;
+        const debugData = this.spawnSystem.getDebugData();
+
+        for (const pt of debugData) {
+            if (!cam.isVisible(pt.x, pt.y, pt.radiusPx)) continue;
+            const s = cam.worldToScreen(pt.x, pt.y);
+
+            // Radius circle
+            const onCooldown = pt.cooldownRemaining > 0;
+            const atCap = pt.nearbyCount >= pt.maxAlive;
+            const blocked = pt.zoneBlocked;
+
+            ctx.globalAlpha = 0.25;
+            ctx.strokeStyle = blocked ? '#ff0000' : atCap ? '#ff8800' : onCooldown ? '#ffff00' : '#00ff00';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, pt.radiusPx, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Center marker
+            ctx.globalAlpha = 0.6;
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Label
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = '#fff';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            const cdSec = (pt.cooldownRemaining / 1000).toFixed(1);
+            const label = `${pt.id} [${pt.enemyType}] ${pt.nearbyCount}/${pt.maxAlive}`;
+            ctx.fillText(label, s.x, s.y - 8);
+            if (onCooldown) {
+                ctx.fillText(`CD: ${cdSec}s`, s.x, s.y + 16);
+            }
+            if (blocked) {
+                ctx.fillStyle = '#ff4444';
+                ctx.fillText('ZONE BLOCKED', s.x, s.y + 26);
+            }
+
+            ctx.globalAlpha = 1;
+        }
+    }
+
     // ── Character select ──
 
     _showCharacterSelect() {
@@ -498,6 +671,7 @@ export class Game {
         overlay.innerHTML = `
             <div class="select-panel">
                 <h1>ZELDA</h1>
+                <p style="margin:0 0 4px;font-size:11px;opacity:0.4;font-family:monospace">v${BUILD_VERSION}</p>
                 <p class="select-subtitle">Choose your character</p>
                 <p class="select-hint">Gamepad: D-pad / Stick to navigate, A to select</p>
                 ${continueBtn}
@@ -659,6 +833,7 @@ export class Game {
         this.player = new Player(CHARACTERS[charKey], charKey);
         this.player.x = SPAWN_X;
         this.player.y = SPAWN_Y;
+        this.player._screenShake = (dur, int) => this.camera.shake(dur, int);
         this.enemyManager.clear();
         this.spawnLevel = 1;
         this.spawnSystem.reset(1);
@@ -682,6 +857,7 @@ export class Game {
         this.player = new Player(CHARACTERS[charKey], charKey);
         this.player.x = saveData.x;
         this.player.y = saveData.y;
+        this.player._screenShake = (dur, int) => this.camera.shake(dur, int);
         this.player.hp = saveData.hp;
         if (saveData.mp !== undefined) {
             this.player.mp = saveData.mp;
@@ -689,6 +865,11 @@ export class Game {
         if (saveData.stats) {
             Object.assign(this.player.stats, saveData.stats);
         }
+        if (saveData.level !== undefined) this.player.level = saveData.level;
+        if (saveData.currentXP !== undefined) this.player.currentXP = saveData.currentXP;
+        if (saveData.xpToNextLevel !== undefined) this.player.xpToNextLevel = saveData.xpToNextLevel;
+        if (saveData.inventory !== undefined) this.player.inventory = saveData.inventory;
+        if (saveData.currentObjective !== undefined) this.player.currentObjective = saveData.currentObjective;
         this.enemyManager.clear();
         this.spawnLevel = saveData.spawnLevel || 1;
         this.spawnSystem.reset(this.spawnLevel);

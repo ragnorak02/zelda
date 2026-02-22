@@ -475,6 +475,202 @@ canvas {
     }
 }
 
+/* ── Status Menu ── */
+
+#status-menu {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 30, 0.95);
+    z-index: 120;
+    animation: fadeIn 0.2s ease;
+}
+
+.status-panel {
+    max-width: 480px;
+    width: 90%;
+    padding: 24px;
+}
+
+.status-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.status-portrait {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 16px rgba(255, 255, 255, 0.1), inset 0 -8px 16px rgba(0, 0, 0, 0.3), inset 0 4px 8px rgba(255, 255, 255, 0.15);
+}
+
+.status-header-info {
+    flex: 1;
+    text-align: left;
+}
+
+.status-name {
+    font-size: 22px;
+    font-weight: 900;
+    color: #fff;
+    font-family: monospace;
+}
+
+.status-level {
+    font-size: 13px;
+    color: #f1c40f;
+    font-family: monospace;
+    margin-bottom: 6px;
+}
+
+.status-xp-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.status-xp-fill {
+    height: 100%;
+    background: #f1c40f;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.status-xp-text {
+    font-size: 11px;
+    color: #888;
+    font-family: monospace;
+}
+
+.status-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.status-tab {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px 6px 0 0;
+    padding: 8px 4px;
+    color: #888;
+    font-family: monospace;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.status-tab:hover,
+.status-tab.active {
+    color: #f1c40f;
+    border-color: #f1c40f;
+    background: rgba(241, 196, 15, 0.08);
+}
+
+.status-content {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0 0 8px 8px;
+    padding: 16px;
+    min-height: 200px;
+    max-height: 340px;
+    overflow-y: auto;
+}
+
+.status-section .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: #ccc;
+    font-size: 14px;
+    font-family: monospace;
+}
+
+.status-section .stat-row span:first-child {
+    color: #888;
+}
+
+.move-entry {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.move-entry:last-child {
+    border-bottom: none;
+}
+
+.move-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: #f1c40f;
+    font-family: monospace;
+}
+
+.move-binding {
+    font-size: 11px;
+    color: #888;
+    font-family: monospace;
+    margin: 2px 0;
+}
+
+.move-desc {
+    font-size: 12px;
+    color: #bbb;
+}
+
+.inv-slot,
+.inv-category {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.inv-label {
+    color: #888;
+}
+
+.inv-value {
+    color: #ccc;
+}
+
+.obj-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #f1c40f;
+    font-family: monospace;
+    margin-bottom: 8px;
+}
+
+.obj-desc {
+    font-size: 14px;
+    color: #bbb;
+    line-height: 1.5;
+}
+
+.status-close-hint {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 12px;
+    color: #555;
+    font-family: monospace;
+}
+
 /* ── Mobile ── */
 
 @media (max-width: 600px) {

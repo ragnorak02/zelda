@@ -1,23 +1,29 @@
 /**
- * CelestialAbilities — fairy companion, spirit dash, celestial pulse, minor heal.
+ * CelestialAbilities — fairy companion, spirit dash, celestial pulse, minor heal + aerial moves.
  *
  * Fairy Companion (always active):
  *   Orbits player, auto-heals below 50% HP, auto-attacks nearby enemies.
  *
  * Attack (J / LClick / X):
- *   Celestial Pulse — radial wave from player, damages and pushes enemies.
+ *   Hold: Spirit Ward shield (blocks frontal damage).
+ *   Release: Celestial Pulse — radial wave from player, damages and pushes enemies.
+ *   Airborne: Dive Pulse — slam down, pulse wave + knockback on landing.
  *
  * Magic (K / RClick / Y):
  *   Minor Heal — instant heal for 20% max HP, costs 2 MP.
+ *   Airborne: Fairy Barrage — fairy fires 5 rapid bolts at nearest enemy.
  *
  * Ability (I / LB):
  *   Spirit Dash — teleport in facing direction with afterimage trail.
+ *
+ * Aerial Dodge:
+ *   Air Dash — spirit dash mid-air, maintain height, afterimage trail, i-frames.
  */
 
 import { AbilitySet } from './AbilitySet.js';
-import { CELESTIAL_ABILITIES } from '../constants.js';
+import { CELESTIAL_ABILITIES, CELESTIAL_AERIAL, SHIELD_CONFIG, WORLD, DEBUG_ABILITY } from '../constants.js';
 import { PulseEffect, FairyBolt } from '../weapons.js';
-import { distance } from '../utils.js';
+import { distance, normalize } from '../utils.js';
 
 // ── Fairy Companion ──
 
@@ -120,6 +126,15 @@ class FairyCompanion {
         ));
     }
 
+    /** Fire a barrage bolt at a specific target position. */
+    fireBarrageBolt(tx, ty, damage, speed, radius, color) {
+        this.effectEngine.addEffect(new FairyBolt(
+            this.x, this.y,
+            tx, ty,
+            damage, speed, radius, color
+        ));
+    }
+
     render(ctx, camera) {
         const cfg = this.cfg;
         const time = performance.now();
@@ -212,6 +227,7 @@ export class CelestialAbilities extends AbilitySet {
     constructor(player, effectEngine) {
         super(player, effectEngine);
         this.cfg = CELESTIAL_ABILITIES;
+        this.aerialCfg = CELESTIAL_AERIAL;
 
         // Fairy companion
         this.fairy = new FairyCompanion(player, effectEngine, this.cfg.fairy);
@@ -223,15 +239,38 @@ export class CelestialAbilities extends AbilitySet {
 
         // Spirit dash state
         this.dashTrail = [];
+
+        // Shield state (hold attack = shield, release = pulse)
+        this.holdingAttack = false;
+
+        // Aerial landing state
+        this._pendingLanding = null; // 'divePulse'
+
+        // Fairy barrage state
+        this._barrageTarget = null;
+        this._barrageRemaining = 0;
+        this._barrageTimer = 0;
     }
 
     onActionPressed(action) {
+        const airborne = this.player.stateMachine.isAirborne;
+
         if (action === 'attack') {
-            this._castPulse();
+            if (airborne) {
+                this._startDivePulse();
+            } else {
+                if (DEBUG_ABILITY) console.log(`[Celestial] shield start @ ${performance.now().toFixed(1)}ms`);
+                // Hold to shield, release fires pulse
+                this.holdingAttack = true;
+            }
         }
 
         if (action === 'magic') {
-            this._castMinorHeal();
+            if (airborne) {
+                this._startFairyBarrage();
+            } else {
+                this._castMinorHeal();
+            }
         }
 
         if (action === 'ability') {
@@ -239,7 +278,15 @@ export class CelestialAbilities extends AbilitySet {
         }
     }
 
-    onActionReleased(action) {}
+    onActionReleased(action) {
+        if (action === 'attack' && this.holdingAttack) {
+            if (DEBUG_ABILITY) console.log(`[Celestial] shield release → pulse @ ${performance.now().toFixed(1)}ms`);
+            this.holdingAttack = false;
+            // Fire pulse on release
+            this._castPulse();
+        }
+    }
+
     onActionHeld(action, dt) {}
 
     update(dt, enemies) {
@@ -247,13 +294,150 @@ export class CelestialAbilities extends AbilitySet {
         if (this.healCooldown > 0) this.healCooldown -= dt;
         if (this.dashCooldown > 0) this.dashCooldown -= dt;
 
+        // Store enemies ref for barrage targeting
+        this._enemies = enemies;
+
         // Fairy AI
         this.fairy.update(dt, enemies);
 
         // Dash trail fade
         for (const t of this.dashTrail) t.alpha -= dt * 4;
         this.dashTrail = this.dashTrail.filter(t => t.alpha > 0);
+
+        // Fairy barrage tick
+        if (this._barrageRemaining > 0 && this._barrageTarget) {
+            this._barrageTimer -= dt;
+            if (this._barrageTimer <= 0) {
+                const cfg = this.aerialCfg.fairyBarrage;
+                this._barrageTimer = cfg.boltInterval;
+                this._barrageRemaining--;
+
+                // Fire bolt at target (or last known position if dead)
+                const target = this._barrageTarget;
+                const tx = target.dead ? target.x : target.x;
+                const ty = target.dead ? target.y : target.y;
+
+                this.fairy.fireBarrageBolt(
+                    tx, ty,
+                    cfg.boltDamage * this.player.stats.damage,
+                    cfg.boltSpeed, cfg.boltRadius, cfg.color
+                );
+
+                if (this._barrageRemaining <= 0) {
+                    this._barrageTarget = null;
+                }
+            }
+        }
     }
+
+    // ── Shield ──
+
+    isCharging() {
+        return this.holdingAttack;
+    }
+
+    getChargeSpeedMult() {
+        return this.holdingAttack ? 0.5 : 1;
+    }
+
+    getShieldColor() {
+        return SHIELD_CONFIG.celestial.color;
+    }
+
+    // ── Aerial moves ──
+
+    _startDivePulse() {
+        const cfg = this.aerialCfg.divePulse;
+        this.player.stateMachine.setVz(cfg.slamSpeed);
+        this._pendingLanding = 'divePulse';
+    }
+
+    _startFairyBarrage() {
+        const p = this.player;
+        const cfg = this.aerialCfg.fairyBarrage;
+
+        // Find nearest enemy in range
+        let nearest = null;
+        let nearDist = cfg.range;
+        // Use stored enemies from fairy's last update context
+        // Access via effectEngine's player reference back to game enemies
+        // The fairy already tracks enemies — find nearest from player position
+        const enemies = this._enemies || [];
+        for (const enemy of enemies) {
+            if (enemy.dead) continue;
+            const d = distance(p, enemy);
+            if (d < nearDist) {
+                nearDist = d;
+                nearest = enemy;
+            }
+        }
+
+        if (!nearest) return;
+
+        this._barrageTarget = nearest;
+        this._barrageRemaining = cfg.boltCount;
+        this._barrageTimer = 0; // fire first immediately
+    }
+
+    onAirDodge(moveDir) {
+        const p = this.player;
+        const cfg = this.aerialCfg.airDash;
+
+        // Determine dash direction
+        const len = Math.sqrt(moveDir.x * moveDir.x + moveDir.y * moveDir.y);
+        let dx, dy;
+        if (len > 0) {
+            dx = moveDir.x / len;
+            dy = moveDir.y / len;
+        } else {
+            dx = p.facing.x;
+            dy = p.facing.y;
+        }
+
+        // Save afterimage at start
+        this.dashTrail.push({
+            x: p.x, y: p.y, alpha: 0.6, color: p.color
+        });
+
+        // Horizontal teleport, maintain height
+        p.x += dx * cfg.distance;
+        p.y += dy * cfg.distance;
+
+        // Clamp to world
+        p.x = Math.max(p.radius, Math.min(WORLD.WIDTH - p.radius, p.x));
+        p.y = Math.max(p.radius, Math.min(WORLD.HEIGHT - p.radius, p.y));
+
+        // Afterimage at destination
+        this.dashTrail.push({
+            x: p.x, y: p.y, alpha: 0.4, color: cfg.color
+        });
+
+        // I-frames
+        p.invulnTimer = Math.max(p.invulnTimer, cfg.iframes);
+
+        return true;
+    }
+
+    onLand() {
+        if (!this._pendingLanding) return;
+        if (DEBUG_ABILITY) console.log(`[Celestial] onLand type=${this._pendingLanding} @ ${performance.now().toFixed(1)}ms`);
+
+        const p = this.player;
+
+        if (this._pendingLanding === 'divePulse') {
+            const cfg = this.aerialCfg.divePulse;
+            const dmg = cfg.damage * p.stats.damage;
+            const radius = cfg.radius * p.stats.weaponSize;
+
+            this.effectEngine.addEffect(new PulseEffect(
+                p.x, p.y, dmg, radius, cfg.expandSpeed, cfg.knockback, cfg.landingColor
+            ));
+        }
+
+        this._pendingLanding = null;
+    }
+
+    // ── Ground moves ──
 
     _castPulse() {
         if (this.pulseCooldown > 0) return;
@@ -302,9 +486,8 @@ export class CelestialAbilities extends AbilitySet {
         p.y += p.facing.y * dist;
 
         // Clamp to world
-        const WORLD_W = 3000, WORLD_H = 3000;
-        p.x = Math.max(p.radius, Math.min(WORLD_W - p.radius, p.x));
-        p.y = Math.max(p.radius, Math.min(WORLD_H - p.radius, p.y));
+        p.x = Math.max(p.radius, Math.min(WORLD.WIDTH - p.radius, p.x));
+        p.y = Math.max(p.radius, Math.min(WORLD.HEIGHT - p.radius, p.y));
 
         // Add destination afterimage
         this.dashTrail.push({
@@ -327,6 +510,35 @@ export class CelestialAbilities extends AbilitySet {
         }
         ctx.globalAlpha = 1;
 
+        // Shield arc while holding attack
+        if (this.holdingAttack) {
+            const p = this.player;
+            const s = camera.worldToScreen(p.x, p.y);
+            const shieldCfg = SHIELD_CONFIG.celestial;
+            const angle = Math.atan2(p.facing.y, p.facing.x);
+            const shieldRadius = p.radius + 25;
+            const arcHalf = shieldCfg.arc / 2;
+            const pulse = 0.5 + Math.sin(performance.now() / 300) * 0.2;
+
+            ctx.save();
+            ctx.globalAlpha = pulse;
+            ctx.strokeStyle = shieldCfg.color;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, shieldRadius, angle - arcHalf, angle + arcHalf);
+            ctx.stroke();
+
+            ctx.globalAlpha = pulse * 0.15;
+            ctx.fillStyle = shieldCfg.color;
+            ctx.beginPath();
+            ctx.moveTo(s.x, s.y);
+            ctx.arc(s.x, s.y, shieldRadius, angle - arcHalf, angle + arcHalf);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
         // Fairy companion
         this.fairy.render(ctx, camera);
     }
@@ -335,11 +547,12 @@ export class CelestialAbilities extends AbilitySet {
         const c = this.cfg;
         return [
             {
-                name: 'Pulse',
+                name: this.holdingAttack ? 'SHIELD' : 'Pulse',
                 ready: this.pulseCooldown <= 0,
                 cooldownPct: this.pulseCooldown > 0
                     ? this.pulseCooldown / c.pulse.cooldown : 0,
-                binding: 'J/X'
+                binding: 'J/X',
+                charging: this.holdingAttack
             },
             {
                 name: 'Heal',

@@ -15,7 +15,7 @@
  * Delegates evasion to DodgeSystem.
  */
 
-import { WORLD, PLAYER_RADIUS, MP_CONFIG } from './constants.js';
+import { WORLD, PLAYER_RADIUS, MP_CONFIG, AIR_MOVE_SPEED_MULT, SHIELD_CONFIG, XP_CONFIG } from './constants.js';
 import { clamp, normalize, lightenColor, darkenColor } from './utils.js';
 import { EffectEngine } from './weapons.js';
 import { DodgeSystem } from './dodge.js';
@@ -69,6 +69,24 @@ export class Player {
         // Strafe mode flag (set by Game each frame)
         this.isStrafing = false;
 
+        // Run state (set by Game dodge hold logic)
+        this.isRunning = false;
+        this._runSpeedMult = 1;
+
+        // Level / XP scaffold
+        this.level = XP_CONFIG.startingLevel;
+        this.currentXP = 0;
+        this.xpToNextLevel = XP_CONFIG.baseXpToLevel;
+
+        // Inventory scaffold
+        this.inventory = { weapon: null, armor: null, keyItems: [], consumables: [] };
+
+        // Objective scaffold
+        this.currentObjective = null;
+
+        // Screen shake callback (wired by Game)
+        this._screenShake = null;
+
         // Subsystems
         this.effectEngine = new EffectEngine(this);
         this.abilities = this._createAbilitySet(classKey);
@@ -104,7 +122,10 @@ export class Player {
 
         // 2. Movement — suppressed during roll, backstep, and non-ground states
         //    Use wasDodging to prevent double-velocity on the frame dodge ends
-        const canMove = !wasDodging && !this.dodgeSystem.isMovementLocked() && this.stateMachine.canMove();
+        const dodgeLocked = wasDodging || this.dodgeSystem.isMovementLocked();
+        const isGroundMovable = this.stateMachine.canMove();
+        const isAirMovable = this.stateMachine.state === 'jumping';
+        const canMove = !dodgeLocked && (isGroundMovable || isAirMovable);
         const move = input.getMovement();
         this.moveDir.x = move.x;
         this.moveDir.y = move.y;
@@ -114,6 +135,14 @@ export class Player {
             let speedMult = 1;
             if (this.abilities.getChargeSpeedMult) {
                 speedMult = this.abilities.getChargeSpeedMult();
+            }
+            // Air movement uses separate multiplier
+            if (isAirMovable && !isGroundMovable) {
+                speedMult *= AIR_MOVE_SPEED_MULT;
+            }
+            // Run speed boost
+            if (this.isRunning && isGroundMovable) {
+                speedMult *= this._runSpeedMult;
             }
 
             this.x += move.x * this.stats.speed * speedMult * dt;
@@ -178,8 +207,32 @@ export class Player {
         this.stateMachine.update(dt, move, this.isStrafing, world);
     }
 
-    takeDamage(amount) {
+    takeDamage(amount, source) {
         if (this.invulnTimer > 0) return;
+
+        // Directional shield block while charging (all classes)
+        const shield = SHIELD_CONFIG[this.classKey];
+        if (source && shield
+            && this.abilities.isCharging && this.abilities.isCharging()) {
+            const angleToSource = Math.atan2(source.y - this.y, source.x - this.x);
+            const facingAngle = Math.atan2(this.facing.y, this.facing.x);
+            let diff = angleToSource - facingAngle;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            const absDiff = Math.abs(diff);
+            if (absDiff < shield.arc / 2) {
+                // Front: full block — no damage, brief invuln
+                this.invulnTimer = 0.05;
+                return;
+            }
+            if (shield.sideReduction > 0
+                && absDiff < (shield.arc / 2 + shield.sideArc / 2)) {
+                // Sides: partial damage reduction
+                amount *= (1 - shield.sideReduction);
+            }
+            // Back: falls through with full damage
+        }
+
         const reduced = amount * (1 - this.stats.defense);
         this.hp -= reduced;
         this.invulnTimer = 0.3;

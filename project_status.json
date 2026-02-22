@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "gameId": "zelda",
   "title": "Zelda",
-  "lastUpdated": "2026-02-22T00:00:00Z",
+  "lastUpdated": "2026-02-22T12:00:00Z",
   "macroPhase": 4,
-  "subphaseIndex": 3,
+  "subphaseIndex": 4,
   "health": {
-    "progressPercent": 56,
-    "buildVersion": "0.2.0",
+    "progressPercent": 57,
+    "buildVersion": "0.3.0",
     "assetStage": "placeholder_v1"
   },
   "tech": {
@@ -23,7 +23,10 @@
     "saveSystem": "partial",
     "settingsMenu": "missing",
     "audio": "missing",
-    "vfx": "partial"
+    "vfx": "partial",
+    "statusMenu": "complete",
+    "chargeMeter": "complete",
+    "screenShake": "complete"
   },
   "milestones": {
     "firstGraphicsPass": true,

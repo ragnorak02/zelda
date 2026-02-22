@@ -13,7 +13,7 @@
  * Supports slow and knockback debuffs from player abilities.
  */
 
-import { ENEMY_TYPES, WORLD } from './constants.js';
+import { ENEMY_TYPES, WORLD, SHIELD_CONFIG } from './constants.js';
 import { distance, normalize, clamp, lightenColor, darkenColor } from './utils.js';
 
 let nextId = 0;
@@ -80,8 +80,12 @@ export class Enemy {
         this.knockbackVy += dy * force;
     }
 
-    update(dt, player) {
+    update(dt, player, world) {
         if (this.dead) return;
+
+        // Capture position before movement for zone enforcement
+        const prevX = this.x;
+        const prevY = this.y;
 
         // Advance wobble phase
         this.wobblePhase += this.wobbleFreq * dt;
@@ -111,6 +115,20 @@ export class Enemy {
             case 'melee':  this._updateMelee(dt, player); break;
             case 'ranged': this._updateRanged(dt, player); break;
             default:       this._updateSwarm(dt, player); break;
+        }
+
+        // Zone enforcement — block enemies from entering TOWN / NO_ENEMY zones
+        if (world && world.isEnemyBlocked(this.x, this.y)) {
+            if (world.isEnemyBlocked(prevX, prevY)) {
+                // Edge case: was already inside a blocked zone → despawn
+                this.dead = true;
+                return;
+            }
+            // Reject movement — stay at previous position
+            this.x = prevX;
+            this.y = prevY;
+            this.knockbackVx = 0;
+            this.knockbackVy = 0;
         }
 
         // Flash timer (damage feedback)
@@ -179,7 +197,7 @@ export class Enemy {
                 this.meleeTimer -= dt;
                 if (this.meleeTimer <= 0) {
                     if (dist < this.attackRange + player.radius + this.radius + 10) {
-                        player.takeDamage(this.damage);
+                        player.takeDamage(this.damage, { x: this.x, y: this.y });
                     }
                     this.meleeState = 'recovery';
                     this.meleeTimer = this.recoveryTime;
@@ -652,6 +670,11 @@ export class EnemyManager {
     constructor() {
         this.enemies = [];
         this.projectiles = [];   // enemy arrows
+        this.world = null;
+    }
+
+    setWorld(world) {
+        this.world = world;
     }
 
     spawn(type, x, y, level) {
@@ -660,7 +683,7 @@ export class EnemyManager {
 
     update(dt, player) {
         for (const enemy of this.enemies) {
-            enemy.update(dt, player);
+            enemy.update(dt, player, this.world);
 
             // Collect arrow projectiles from ranged enemies
             if (enemy._pendingArrow) {
@@ -672,7 +695,7 @@ export class EnemyManager {
             if (!enemy.dead
                 && enemy.behavior === 'swarm'
                 && distance(enemy, player) < enemy.radius + player.radius) {
-                player.takeDamage(enemy.damage * dt);
+                player.takeDamage(enemy.damage * dt, { x: enemy.x, y: enemy.y });
             }
         }
 
@@ -680,10 +703,45 @@ export class EnemyManager {
         for (const arrow of this.projectiles) {
             arrow.update(dt);
 
-            // Hit detection against player
-            if (!arrow.dead && distance(arrow, player) < arrow.radius + player.radius) {
-                player.takeDamage(arrow.damage);
+            // Skip deflected arrows for player hit detection
+            if (!arrow.dead && !arrow.deflected && distance(arrow, player) < arrow.radius + player.radius) {
+                // Shield deflection (all classes)
+                const shield = SHIELD_CONFIG[player.classKey];
+                if (shield
+                    && player.abilities.isCharging && player.abilities.isCharging()) {
+                    const angleToArrow = Math.atan2(arrow.y - player.y, arrow.x - player.x);
+                    const facingAngle = Math.atan2(player.facing.y, player.facing.x);
+                    let diff = angleToArrow - facingAngle;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+
+                    if (Math.abs(diff) < shield.arc / 2) {
+                        // Deflect arrow — reverse with slight spread
+                        const spread = (Math.random() - 0.5) * 0.3;
+                        const newAngle = Math.atan2(arrow.dy, arrow.dx) + Math.PI + spread;
+                        arrow.dx = Math.cos(newAngle);
+                        arrow.dy = Math.sin(newAngle);
+                        arrow.deflected = true;
+                        arrow.lifetime = 2.0;
+                        arrow.color = shield.color;
+                        continue;
+                    }
+                }
+                player.takeDamage(arrow.damage, { x: arrow.x, y: arrow.y });
                 arrow.dead = true;
+            }
+        }
+
+        // Deflected arrows damage enemies
+        for (const arrow of this.projectiles) {
+            if (arrow.dead || !arrow.deflected) continue;
+            for (const enemy of this.enemies) {
+                if (enemy.dead) continue;
+                if (distance(arrow, enemy) < arrow.radius + enemy.radius) {
+                    enemy.takeDamage(arrow.damage);
+                    arrow.dead = true;
+                    break;
+                }
             }
         }
 

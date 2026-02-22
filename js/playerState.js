@@ -56,7 +56,9 @@ export class PlayerStateMachine {
     }
 
     canUseAbility() {
-        return this.state !== 'hanging' && this.state !== 'falling';
+        if (this.state === 'hanging') return false;
+        if (this.gapFalling) return false;
+        return true;
     }
 
     // ── Actions ──
@@ -67,6 +69,14 @@ export class PlayerStateMachine {
         this.state = 'jumping';
         this.fallStartZ = 0;
         return true;
+    }
+
+    /** Set vertical velocity directly (for slam moves). Suppresses fall damage when slamming. */
+    setVz(newVz) {
+        if (this.isAirborne) {
+            this.vz = newVz;
+            if (newVz < 0) this.fallStartZ = 0; // intentional slam — no fall damage
+        }
     }
 
     dismountVine() {
@@ -183,6 +193,11 @@ export class PlayerStateMachine {
                     this.player.takeDamage(dmg);
                 }
                 this.fallStartZ = 0;
+
+                // Ability landing callback (slam moves)
+                if (this.player.abilities) {
+                    this.player.abilities.onLand();
+                }
 
                 this.state = 'idle';
             }

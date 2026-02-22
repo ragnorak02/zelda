@@ -3,6 +3,8 @@
  * bottom control bar, lock-on indicator, game-over screen, mobile joystick.
  */
 
+import { BUILD_VERSION } from './constants.js';
+
 export class UI {
     constructor(ctx, canvas) {
         this.ctx = ctx;
@@ -95,6 +97,15 @@ export class UI {
             const fairyState = abilities.fairy.state;
             ctx.fillText(`FAIRY: ${fairyState.toUpperCase()}`, hpX + hpW + 16, hpY);
         }
+
+        // ── Version (bottom-right, above control bar) ──
+        ctx.save();
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.fillText(`v${BUILD_VERSION}`, w - 10, this.canvas.height - 52);
+        ctx.restore();
 
         // ── Bottom control bar ──
         this._renderControlBar(player);

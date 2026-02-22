@@ -1,25 +1,32 @@
 /**
- * FighterAbilities — charge attack, wind spell, spin.
+ * FighterAbilities — charge attack, wind spell, spin + aerial moves.
  *
  * Attack (J / LClick / X / RT):
  *   Hold to charge (3 tiers), release to execute scaled swing.
  *   Shows shield arc while charging, movement slowed.
+ *   Airborne: Falling Slash — slam down, wide swing on landing.
  *
  * Magic (K / RClick / Y):
  *   Wind spell — cone push, costs 1 MP. Can cast during charge.
+ *   Airborne: Air Wind Burst — 360° pulse push + slight float.
  *
  * Ability (I / LB):
  *   Spin — 360° emergency knockback, cooldown.
+ *
+ * Aerial Dodge:
+ *   Dive Roll — slam down with i-frames, forward push + AoE on landing.
  */
 
 import { AbilitySet } from './AbilitySet.js';
-import { FIGHTER_ABILITIES } from '../constants.js';
-import { SwingEffect, WindPushEffect, SpinAttackState } from '../weapons.js';
+import { FIGHTER_ABILITIES, FIGHTER_AERIAL, SHIELD_CONFIG, CHARGE_METER, DEBUG_ABILITY } from '../constants.js';
+import { SwingEffect, WindPushEffect, SpinAttackState, PulseEffect } from '../weapons.js';
+import { renderChargeMeter } from '../chargeMeter.js';
 
 export class FighterAbilities extends AbilitySet {
     constructor(player, effectEngine) {
         super(player, effectEngine);
         this.cfg = FIGHTER_ABILITIES;
+        this.aerialCfg = FIGHTER_AERIAL;
 
         // Charge state
         this.charging = false;
@@ -29,19 +36,34 @@ export class FighterAbilities extends AbilitySet {
         // Spin cooldown
         this.spinCooldown = 0;
 
+        // Aerial landing state
+        this._pendingLanding = null; // 'fallingSlash' | 'diveRoll'
+        this._diveRollDir = null;    // direction for dive roll forward push
+
         // Track speed modifier
         this._originalSpeedMult = 1;
     }
 
     onActionPressed(action) {
+        const airborne = this.player.stateMachine.isAirborne;
+
         if (action === 'attack') {
-            this.charging = true;
-            this.chargeTime = 0;
-            this.chargeTier = 0;
+            if (airborne) {
+                this._startFallingSlash();
+            } else {
+                if (DEBUG_ABILITY) console.log(`[Fighter] charge start @ ${performance.now().toFixed(1)}ms`);
+                this.charging = true;
+                this.chargeTime = 0;
+                this.chargeTier = 0;
+            }
         }
 
         if (action === 'magic') {
-            this._castWind();
+            if (airborne) {
+                this._castAirWindBurst();
+            } else {
+                this._castWind();
+            }
         }
 
         if (action === 'ability') {
@@ -51,6 +73,7 @@ export class FighterAbilities extends AbilitySet {
 
     onActionReleased(action) {
         if (action === 'attack' && this.charging) {
+            if (DEBUG_ABILITY) console.log(`[Fighter] charge release tier=${this.chargeTier} @ ${performance.now().toFixed(1)}ms`);
             this._releaseCharge();
         }
     }
@@ -65,6 +88,89 @@ export class FighterAbilities extends AbilitySet {
     update(dt, enemies) {
         if (this.spinCooldown > 0) this.spinCooldown -= dt;
     }
+
+    // ── Aerial moves ──
+
+    _startFallingSlash() {
+        const cfg = this.aerialCfg.fallingSlash;
+        this.player.stateMachine.setVz(cfg.slamSpeed);
+        this._pendingLanding = 'fallingSlash';
+    }
+
+    _castAirWindBurst() {
+        const p = this.player;
+        const cfg = this.aerialCfg.airWindBurst;
+
+        if (!p.canSpendMp(cfg.mpCost)) return;
+        p.spendMp(cfg.mpCost);
+
+        const dmg = cfg.damage * p.stats.damage;
+        this.effectEngine.addEffect(new PulseEffect(
+            p.x, p.y, dmg, cfg.radius, cfg.expandSpeed, cfg.pushForce, cfg.color
+        ));
+
+        // Slight upward float boost
+        if (p.stateMachine.isAirborne) {
+            p.stateMachine.vz = Math.max(p.stateMachine.vz, cfg.floatBoost);
+        }
+    }
+
+    onAirDodge(moveDir) {
+        const p = this.player;
+        const cfg = this.aerialCfg.diveRoll;
+
+        p.stateMachine.setVz(cfg.slamSpeed);
+        p.invulnTimer = Math.max(p.invulnTimer, cfg.iframes);
+
+        // Store move direction for forward push on landing
+        const len = Math.sqrt(moveDir.x * moveDir.x + moveDir.y * moveDir.y);
+        if (len > 0) {
+            this._diveRollDir = { x: moveDir.x / len, y: moveDir.y / len };
+        } else {
+            this._diveRollDir = { x: p.facing.x, y: p.facing.y };
+        }
+        this._pendingLanding = 'diveRoll';
+        return true;
+    }
+
+    onLand() {
+        if (!this._pendingLanding) return;
+        if (DEBUG_ABILITY) console.log(`[Fighter] onLand type=${this._pendingLanding} @ ${performance.now().toFixed(1)}ms`);
+
+        const p = this.player;
+
+        if (this._pendingLanding === 'fallingSlash') {
+            const cfg = this.aerialCfg.fallingSlash;
+            const angle = Math.atan2(p.attackDir.y, p.attackDir.x);
+            const dmg = cfg.damage * p.stats.damage;
+            const range = cfg.range * p.stats.weaponSize;
+
+            this.effectEngine.addEffect(new SwingEffect(
+                p.x, p.y, angle, range, cfg.arc, dmg, 0.25, cfg.color
+            ));
+        }
+
+        if (this._pendingLanding === 'diveRoll') {
+            const cfg = this.aerialCfg.diveRoll;
+
+            // Forward push
+            if (this._diveRollDir) {
+                p.x += this._diveRollDir.x * cfg.forwardDist;
+                p.y += this._diveRollDir.y * cfg.forwardDist;
+            }
+
+            // Landing AoE
+            const dmg = cfg.landingDamage * p.stats.damage;
+            this.effectEngine.addEffect(new PulseEffect(
+                p.x, p.y, dmg, cfg.landingRadius, 300, 100, cfg.landingColor
+            ));
+        }
+
+        this._pendingLanding = null;
+        this._diveRollDir = null;
+    }
+
+    // ── Ground moves ──
 
     _updateChargeTier() {
         const t = this.chargeTime;
@@ -104,7 +210,10 @@ export class FighterAbilities extends AbilitySet {
         }
 
         dmg *= p.stats.damage;
-        const range = c.range * p.stats.weaponSize;
+        const rangeMult = this.chargeTier >= 3 ? c.chargedRangeMult.tier3
+            : this.chargeTier >= 2 ? c.chargedRangeMult.tier2
+            : c.chargedRangeMult.tier1;
+        const range = c.range * p.stats.weaponSize * rangeMult * (c.globalRangeMult || 1);
         const duration = 0.2 + (this.chargeTier >= 3 ? 0.15 : 0);
 
         this.effectEngine.addEffect(new SwingEffect(
@@ -160,6 +269,10 @@ export class FighterAbilities extends AbilitySet {
         return this.charging;
     }
 
+    getShieldColor() {
+        return SHIELD_CONFIG.fighter.color;
+    }
+
     /**
      * Dodge intercept: if charging and moving, execute a shield bash instead
      * of normal dodge. Returns true if intercepted.
@@ -175,7 +288,7 @@ export class FighterAbilities extends AbilitySet {
         const range = 45 * p.stats.weaponSize;
 
         this.effectEngine.addEffect(new SwingEffect(
-            p.x, p.y, angle, range, Math.PI / 2, dmg, 0.15, '#7ec8e3'
+            p.x, p.y, angle, range, Math.PI / 2, dmg, 0.15, SHIELD_CONFIG.fighter.color
         ));
 
         // Short dash in move direction
@@ -201,15 +314,30 @@ export class FighterAbilities extends AbilitySet {
         const p = this.player;
         const s = camera.worldToScreen(p.x, p.y);
         const angle = Math.atan2(p.facing.y, p.facing.x);
+        const shieldCfg = SHIELD_CONFIG.fighter;
 
-        // Shield arc while charging (from old knight pivot)
+        // Charge meter ring
+        const maxTime = this.cfg.charge.tier3.time;
+        const progress = Math.min(1, this.chargeTime / maxTime);
+        const tierThresholds = [
+            this.cfg.charge.tier1.time / maxTime,
+            this.cfg.charge.tier2.time / maxTime,
+            this.cfg.charge.tier3.time / maxTime,
+        ];
+        renderChargeMeter(ctx, s.x, s.y, p.radius, progress, CHARGE_METER.FIGHTER_COLOR, {
+            tierThresholds,
+            tierReached: this.chargeTier >= 3,
+            zOffset: p.z,
+        });
+
+        // Shield arc while charging
         const shieldRadius = p.radius + 25;
-        const arcHalf = Math.PI / 3;
+        const arcHalf = shieldCfg.arc / 2;
         const pulse = 0.6 + Math.sin(performance.now() / 200) * 0.2;
 
         ctx.save();
         ctx.globalAlpha = pulse;
-        ctx.strokeStyle = '#7ec8e3';
+        ctx.strokeStyle = shieldCfg.color;
         ctx.lineWidth = 5;
         ctx.lineCap = 'round';
         ctx.beginPath();
@@ -217,7 +345,7 @@ export class FighterAbilities extends AbilitySet {
         ctx.stroke();
 
         ctx.globalAlpha = pulse * 0.2;
-        ctx.fillStyle = '#7ec8e3';
+        ctx.fillStyle = shieldCfg.color;
         ctx.beginPath();
         ctx.moveTo(s.x, s.y);
         ctx.arc(s.x, s.y, shieldRadius, angle - arcHalf, angle + arcHalf);

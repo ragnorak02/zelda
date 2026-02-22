@@ -58,7 +58,7 @@ export class PauseManager {
                 <h2>PAUSED</h2>
                 <div class="pause-menu">
                     <button class="pause-btn" data-action="resume">Resume</button>
-                    <button class="pause-btn" data-action="character">View Character</button>
+                    <button class="pause-btn" data-action="character">Status</button>
                     <button class="pause-btn" data-action="save">Save Game</button>
                     <button class="pause-btn" data-action="mainmenu">Return to Main Menu</button>
                 </div>

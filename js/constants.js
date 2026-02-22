@@ -1,3 +1,7 @@
+// ── Build ──
+
+export const BUILD_VERSION = '0.3.0';
+
 // ── World ──
 
 export const WORLD = {
@@ -24,6 +28,8 @@ export const FIGHTER_ABILITIES = {
         tier3: { time: 3.0, damage: 70, name: 'Devastating Blow' },
         range: 60,
         arc: Math.PI * 2 / 3,   // 120°
+        chargedRangeMult: { tier1: 1.0, tier2: 1.3, tier3: 1.6 },
+        globalRangeMult: 1.5,   // scales all charged attack ranges
         color: '#64b5f6',
         moveSpeedMult: 0.4      // 40% speed while charging
     },
@@ -235,6 +241,38 @@ export const ENEMY_TYPES = {
     }
 };
 
+// ── Shield Config (per-class directional block while charging) ──
+
+export const SHIELD_CONFIG = {
+    fighter:   { arc: Math.PI * 2 / 3, blockReduction: 1.0, sideReduction: 0.0, sideArc: Math.PI,       color: '#7ec8e3', pushForce: 200 },
+    mage:      { arc: Math.PI / 2,     blockReduction: 1.0, sideReduction: 0.0, sideArc: Math.PI * 0.6, color: '#b388ff', pushForce: 150 },
+    celestial: { arc: Math.PI * 2 / 3, blockReduction: 1.0, sideReduction: 0.0, sideArc: Math.PI * 0.8, color: '#a5d6a7', pushForce: 120 },
+};
+
+// ── Fighter Aerial Moves ──
+
+export const FIGHTER_AERIAL = {
+    diveRoll:     { slamSpeed: -500, forwardDist: 60, iframes: 0.3, landingDamage: 20, landingRadius: 50, landingColor: '#64b5f6' },
+    fallingSlash: { slamSpeed: -600, damage: 45, range: 70, arc: Math.PI, color: '#42a5f5' },
+    airWindBurst: { mpCost: 1, damage: 10, radius: 90, expandSpeed: 350, pushForce: 250, floatBoost: 150, color: '#a8e6cf' },
+};
+
+// ── Mage Aerial Moves ──
+
+export const MAGE_AERIAL = {
+    meteorDrop:   { slamSpeed: -700, damage: 60, radius: 70, landingColor: '#ff9800' },
+    airBlink:     { distance: 100, iframes: 0.2, color: '#b388ff' },
+    frostShatter: { damage: 20, radius: 100, expandSpeed: 300, slowFactor: 0.5, slowDuration: 2.5, mpCost: 1, color: '#80deea' },
+};
+
+// ── Celestial Aerial Moves ──
+
+export const CELESTIAL_AERIAL = {
+    divePulse:    { slamSpeed: -500, damage: 30, radius: 80, expandSpeed: 300, knockback: 200, landingColor: '#ce93d8' },
+    airDash:      { distance: 130, iframes: 0.25, color: '#b39ddb' },
+    fairyBarrage: { boltCount: 5, boltInterval: 0.08, boltDamage: 8, boltSpeed: 350, boltRadius: 4, range: 180, color: '#e1bee7' },
+};
+
 // ── Dodge / Evade ──
 
 export const DODGE = {
@@ -262,6 +300,13 @@ export const BACK_JUMP = {
     iframes: 0.15        // invulnerability window
 };
 
+// ── Run (B-button hold) ──
+
+export const RUN = {
+    speedMult: 1.6,
+    holdThreshold: 0.15,   // seconds before hold triggers run
+};
+
 // ── Jump ──
 
 export const JUMP = {
@@ -269,6 +314,8 @@ export const JUMP = {
     gravity: 800,            // units/sec^2
     landSquashDuration: 0.1, // visual squash on landing
 };
+
+export const AIR_MOVE_SPEED_MULT = 1.0;
 
 // ── Upgrades ──
 
@@ -330,3 +377,97 @@ export const UPGRADES = [
         value: 1
     }
 ];
+
+// ── Zone Control Types ──
+export const ZONE_TYPES = Object.freeze({
+    TOWN: 'TOWN',           // No spawning, no enemy entry
+    NO_SPAWN: 'NO_SPAWN',   // No spawning, enemies may chase through
+    NO_ENEMY: 'NO_ENEMY',   // No spawning, no enemy entry
+    WILD: 'WILD'            // Normal combat zone
+});
+
+export const ZONE_TYPE_MAP = {
+    'Millhaven':       ZONE_TYPES.TOWN,
+    'Starting Path':   ZONE_TYPES.NO_SPAWN,
+    'The Fairy Tree':  ZONE_TYPES.NO_SPAWN,
+    // All others default to WILD
+};
+
+// ── Enemy Spawn Points ──
+export const ENEMY_SPAWN_POINTS = [
+    { id: 'north_1', x: 1500, y: 900,  enemyType: 'shambler', cooldownMs: 5000,  maxAlive: 3, radiusPx: 200 },
+    { id: 'north_2', x: 1500, y: 650,  enemyType: 'imp',      cooldownMs: 3000,  maxAlive: 4, radiusPx: 180 },
+    { id: 'north_3', x: 1450, y: 500,  enemyType: 'archer',   cooldownMs: 8000,  maxAlive: 2, radiusPx: 250 },
+    { id: 'west_1',  x: 700,  y: 1500, enemyType: 'shambler', cooldownMs: 5000,  maxAlive: 3, radiusPx: 200 },
+    { id: 'west_2',  x: 500,  y: 1500, enemyType: 'brute',    cooldownMs: 12000, maxAlive: 1, radiusPx: 300 },
+    { id: 'cave_1',  x: 300,  y: 1500, enemyType: 'imp',      cooldownMs: 3000,  maxAlive: 5, radiusPx: 180 },
+    { id: 'cave_2',  x: 250,  y: 1450, enemyType: 'shambler', cooldownMs: 6000,  maxAlive: 2, radiusPx: 200 },
+    { id: 'east_1',  x: 2100, y: 1500, enemyType: 'archer',   cooldownMs: 7000,  maxAlive: 2, radiusPx: 250 },
+    { id: 'east_2',  x: 2300, y: 1500, enemyType: 'shambler', cooldownMs: 5000,  maxAlive: 3, radiusPx: 200 },
+    { id: 'bridge_1',x: 2500, y: 1450, enemyType: 'brute',    cooldownMs: 15000, maxAlive: 1, radiusPx: 300 },
+];
+
+export const SPAWN_CONFIG = {
+    MIN_PLAYER_DISTANCE: 250,
+    PREFER_OFFSCREEN: true,
+    BASE_COOLDOWN_MULT: 1.0,
+    LEVEL_COOLDOWN_REDUCTION: 0.05,
+};
+
+// ── Guard Config ──
+
+export const GUARD_CONFIG = {
+    attackRadius: 120,
+    damage: 20,
+    attackCooldown: 1.5,
+    invulnerable: true,
+    attackVisualDuration: 0.2,
+};
+
+// ── Charge Meter (shared circular progress renderer) ──
+export const CHARGE_METER = {
+    FIGHTER_COLOR: '#64b5f6',
+    MAGE_COLOR: '#ff7043',
+    CELESTIAL_COLOR: '#a5d6a7',
+    RING_WIDTH: 3,
+    RADIUS_OFFSET: 18,
+    BACKGROUND_ALPHA: 0.2,
+    FOREGROUND_ALPHA: 0.7,
+    TIER_FLASH_SPEED: 200,
+};
+
+// ── VFX Identity (per-character visual signature) ──
+export const VFX_IDENTITY = {
+    fighter: {
+        dustColor: 'rgba(180, 160, 120, 0.6)',
+        impactRingColor: 'rgba(100, 181, 246, 0.4)',
+    },
+    mage: {
+        streakColor: '#ff7043',
+        flareColor: '#fff3e0',
+    },
+    celestial: {
+        beamColor: 'rgba(206, 147, 216, 0.5)',
+        glowColor: 'rgba(225, 190, 231, 0.3)',
+        particleColor: '#e1bee7',
+    },
+};
+
+// ── Screen Shake ──
+export const SCREEN_SHAKE = {
+    MAX_INTENSITY: 12,
+    DECAY_RATE: 8,
+};
+
+// ── XP / Level Scaffold ──
+export const XP_CONFIG = {
+    baseXpToLevel: 100,
+    startingLevel: 1,
+};
+
+// ── Debug Flags ──
+export const DEBUG_ZONES = false;
+export const DEBUG_SPAWN = false;
+export const DEBUG_AI = false;
+export const DEBUG_ABILITY = false;
+export const DEBUG_STATUS_MENU = false;

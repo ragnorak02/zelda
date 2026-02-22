@@ -55,7 +55,7 @@ Z:/godot
 
 Claude MUST use the full explicit path when invoking Godot.
 
-Never assume it is on PATH.
+Never assume it is on PATH.  
 Never use just `godot`.
 
 Always use:
@@ -79,6 +79,7 @@ If Godot fails to launch:
 2. Verify working directory is project root.
 3. Do not attempt to reinstall.
 4. Do not modify PATH.
+
 ---
 
 ## State Machine
@@ -104,10 +105,113 @@ dodge.js — DodgeSystem
 world.js — WorldManager (procedural generation)  
 lockon.js — Lock-on system  
 pause.js — Pause overlay  
-spawn.js — SpawnSystem (currently not wired)  
-upgrade.js — Upgrade system (not wired)  
-constants.js — All tuning values  
-utils.js — Math utilities  
+
+spawn.js — SpawnSystem (wired into Game; upgrade to SpawnSystem v2 required)
+upgrade.js — Upgrade system (wired; confirm integration points)
+chargeMeter.js — Shared circular charge progress renderer
+statusMenu.js — DOM-based Status Menu overlay (stats, moves, inventory, objective)
+
+constants.js — All tuning values
+utils.js — Math utilities
+
+---
+
+# Installed Systems — World Control Zones (Amaris Standard)
+
+## Purpose
+
+Prevent enemies from:
+- Entering the town / safe areas
+- Spawning inside safe areas
+- Camping the player via uncontrolled respawn
+
+This system is REQUIRED for “Town is Safe” behavior and must be enforced by code,
+not implied by visuals (trees/walls).
+
+---
+
+## Zone Types (Minimum)
+
+### TownZone (Safe Zone)
+
+Rules:
+- Enemies cannot enter TownZone.
+- Enemies cannot spawn inside TownZone.
+- If an enemy is forced into TownZone (edge-case), it must be redirected or safely despawned.
+- Multiple TownZones must be supported.
+
+Implementation Contract (Required API):
+- `containsPoint(x, y): boolean`
+- `getType(): "TOWN" | "NO_SPAWN" | "NO_ENEMY" | ...`
+- Optional: `getBounds()` for debug overlay
+
+Integration Requirements:
+- Movement restriction (AI/pathing/collision) must respect TownZone.
+- Spawn restriction must check TownZone before any spawn.
+
+Debug (Required):
+- Toggleable debug overlay showing zone bounds
+- OFF by default in production builds
+
+---
+
+# Installed Systems — SpawnSystem v2 (Spawn Points + Cooldowns)
+
+## Current Problem
+
+Enemies respawn too frequently and appear everywhere, including near/inside safe areas.
+
+## Goal
+
+Replace uncontrolled spawning with:
+- Designated spawn points
+- Cooldowns
+- Density caps
+- Anti-camping rules
+- Safe-zone restrictions (TownZone / NoSpawn)
+
+---
+
+## Required Entities
+
+### EnemySpawnPoint
+
+Per-point config:
+- `enemyType`
+- `cooldownMs`
+- `maxAliveNearPoint`
+- `radiusCheckPx`
+- `enabled`
+- Optional: `spawnGroupId` (for waves/regions later)
+
+---
+
+## Spawn Manager Rules (Required)
+
+- Spawns ONLY occur at EnemySpawnPoint nodes (no random “spawn anywhere”).
+- Block spawn if:
+  - SpawnPoint is inside TownZone / NoSpawn zone
+  - SpawnPoint is on cooldown
+  - `aliveNearPoint >= maxAliveNearPoint`
+  - Player is within minimum spawn distance (configurable)
+- Do NOT respawn immediately upon death.
+- Cooldown + caps must be deterministic and tunable via `constants.js`.
+
+---
+
+## Anti-Camping Rules (Required)
+
+- Never spawn within X px of player (configurable).
+- Prefer spawn points outside immediate camera view (recommended).
+- Optional: “offscreen but nearby” selection if multiple points exist.
+
+---
+
+## Debug (Required)
+
+- Overlay: draw spawn points + cooldown status + alive-near counts
+- Structured spawn logs only when DEBUG_SPAWN is enabled
+- Debug must be OFF by default
 
 ---
 
@@ -153,13 +257,13 @@ All art is procedural (no sprite assets).
 ## Macro Phase 1 — Foundation (1–8)
 
 - [x] 1. Repo standardized
-- [ ] 2. Boots without console errors
+- [x] 2. Boots without console errors
 - [x] 3. Unified input abstraction complete
 - [x] 4. Controller navigation baseline
-- [ ] 5. Base state machine stable
-- [ ] 6. Error handling + logging pattern
+- [x] 5. Base state machine stable
+- [x] 6. Error handling + logging pattern
 - [x] 7. Config constants centralized
-- [ ] 8. Version/build identifier visible
+- [x] 8. Version/build identifier visible
 
 ---
 
@@ -195,6 +299,17 @@ All art is procedural (no sprite assets).
 
 - [x] 27. SpawnSystem wired into Game
 - [x] 28. Upgrade system integrated
+
+- [ ] 28a. WorldZoneSystem added (TownZone + NoSpawn support)
+- [ ] 28b. TownZone blocks enemy entry (movement restriction enforced)
+- [ ] 28c. TownZone blocks enemy spawning (spawn restriction enforced)
+
+- [ ] 28d. SpawnSystem v2: spawn points implemented (EnemySpawnPoint)
+- [ ] 28e. SpawnSystem v2: cooldowns per spawn point
+- [ ] 28f. SpawnSystem v2: density caps near spawn point
+- [ ] 28g. SpawnSystem v2: anti-camping (min player distance)
+- [ ] 28h. SpawnSystem v2: debug overlay + structured logs
+
 - [ ] 29. Progression system defined
 - [ ] 30. Quest framework implemented
 - [ ] 31. Zone unlocking mechanics added
@@ -241,10 +356,23 @@ All art is procedural (no sprite assets).
 
 # Current Focus
 
-Current Goal:  
-Current Task:  
-Work Mode:  
-Next Milestone:  
+Current Goal: Phase 4 — Systems Expansion
+Current Task: WorldZoneSystem + SpawnSystem v2
+Work Mode: Feature
+Next Milestone: Checkpoints 28a–28h complete
+
+---
+
+# Debug Flags (Standard)
+
+Must exist:
+- DEBUG_ZONES
+- DEBUG_SPAWN
+- DEBUG_AI
+- DEBUG_ABILITY
+- DEBUG_STATUS_MENU
+
+All default to false in production.
 
 ---
 

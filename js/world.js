@@ -13,6 +13,7 @@
  */
 
 import { clamp, lightenColor, darkenColor } from './utils.js';
+import { ZONE_TYPE_MAP, ZONE_TYPES, DEBUG_ZONES } from './constants.js';
 
 // ── NPC definitions ──
 
@@ -31,6 +32,19 @@ const NPCS = [
       dialogue: 'The bridge east is blocked. A landslide took out the supports.' },
     { name: 'Child Pip', x: 1450, y: 1700, color: '#c8a0e0', radius: 10,
       dialogue: 'Have you seen the cave to the west? Scary noises come from it at night!' },
+    // Town entrance guards
+    { name: 'Guard', x: 1500, y: 1220, color: '#6088c8', radius: 14,
+      dialogue: 'None shall threaten Millhaven while I stand watch.',
+      guard: true, guardState: { attackCooldown: 0, attackVisual: 0, targetX: 0, targetY: 0 } },
+    { name: 'Guard', x: 1500, y: 1880, color: '#6088c8', radius: 14,
+      dialogue: 'Move along, traveler. The south road is safe... for now.',
+      guard: true, guardState: { attackCooldown: 0, attackVisual: 0, targetX: 0, targetY: 0 } },
+    { name: 'Guard', x: 1120, y: 1500, color: '#6088c8', radius: 14,
+      dialogue: 'The cave to the west draws dark creatures. Stay vigilant.',
+      guard: true, guardState: { attackCooldown: 0, attackVisual: 0, targetX: 0, targetY: 0 } },
+    { name: 'Guard', x: 1880, y: 1500, color: '#6088c8', radius: 14,
+      dialogue: 'The bridge is out. Nothing gets through from the east.',
+      guard: true, guardState: { attackCooldown: 0, attackVisual: 0, targetX: 0, targetY: 0 } },
 ];
 
 export class WorldManager {
@@ -245,7 +259,7 @@ export class WorldManager {
     }
 
     _defineZones() {
-        this.zones = [
+        const rawZones = [
             { name: 'Starting Path', x: 1300, y: 2050, w: 400, h: 750 },
             { name: 'Millhaven', x: 1100, y: 1200, w: 800, h: 700 },
             { name: 'North Path', x: 1300, y: 400, w: 400, h: 800 },
@@ -255,6 +269,10 @@ export class WorldManager {
             { name: 'East Path', x: 1950, y: 1350, w: 500, h: 300 },
             { name: 'Broken Bridge', x: 2400, y: 1350, w: 300, h: 300 },
         ];
+        this.zones = rawZones.map(z => ({
+            ...z,
+            type: ZONE_TYPE_MAP[z.name] || ZONE_TYPES.WILD
+        }));
     }
 
     // ── Building helper ──
@@ -320,6 +338,69 @@ export class WorldManager {
             }
         }
         return closest;
+    }
+
+    /** Returns the zone type at world position (x, y), or WILD if outside all zones. */
+    getZoneType(x, y) {
+        for (const z of this.zones) {
+            if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) {
+                return z.type;
+            }
+        }
+        return ZONE_TYPES.WILD;
+    }
+
+    /** True if enemies cannot enter this position (TOWN or NO_ENEMY). */
+    isEnemyBlocked(x, y) {
+        const t = this.getZoneType(x, y);
+        return t === ZONE_TYPES.TOWN || t === ZONE_TYPES.NO_ENEMY;
+    }
+
+    /** True if spawning is blocked at this position (anything that is not WILD). */
+    isSpawnBlocked(x, y) {
+        return this.getZoneType(x, y) !== ZONE_TYPES.WILD;
+    }
+
+    /** Returns all zones (for debug overlay). */
+    getAllZones() {
+        return this.zones;
+    }
+
+    /** Debug overlay — draw colored zone rectangles + labels. Gated by DEBUG_ZONES. */
+    renderDebugZones(ctx, camera) {
+        if (!DEBUG_ZONES) return;
+
+        const colors = {
+            [ZONE_TYPES.TOWN]:     'rgba(0, 200, 0, 0.12)',
+            [ZONE_TYPES.NO_SPAWN]: 'rgba(255, 200, 0, 0.10)',
+            [ZONE_TYPES.NO_ENEMY]: 'rgba(255, 0, 0, 0.10)',
+            [ZONE_TYPES.WILD]:     'rgba(100, 100, 255, 0.06)',
+        };
+        const borderColors = {
+            [ZONE_TYPES.TOWN]:     'rgba(0, 200, 0, 0.5)',
+            [ZONE_TYPES.NO_SPAWN]: 'rgba(255, 200, 0, 0.4)',
+            [ZONE_TYPES.NO_ENEMY]: 'rgba(255, 0, 0, 0.4)',
+            [ZONE_TYPES.WILD]:     'rgba(100, 100, 255, 0.2)',
+        };
+
+        for (const z of this.zones) {
+            const s = camera.worldToScreen(z.x, z.y);
+            const w = z.w;
+            const h = z.h;
+
+            ctx.fillStyle = colors[z.type] || 'rgba(255,255,255,0.05)';
+            ctx.fillRect(s.x, s.y, w, h);
+
+            ctx.strokeStyle = borderColors[z.type] || 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(s.x, s.y, w, h);
+
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.font = 'bold 11px monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`${z.name} [${z.type}]`, s.x + 4, s.y + 4);
+        }
     }
 
     // ── Collision ──
@@ -1184,6 +1265,20 @@ export class WorldManager {
             ctx.beginPath();
             ctx.arc(s.x - r - 2, s.y, 5, 0, Math.PI * 2);
             ctx.fill();
+            // Attack swing visual
+            if (npc.guard && npc.guardState && npc.guardState.attackVisual > 0) {
+                const gs = npc.guardState;
+                const atkAngle = Math.atan2(gs.targetY - npc.y, gs.targetX - npc.x);
+                const fade = gs.attackVisual / 0.2;
+                ctx.save();
+                ctx.globalAlpha = fade * 0.5;
+                ctx.strokeStyle = '#aac8ff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, r + 15, atkAngle - 0.6, atkAngle + 0.6);
+                ctx.stroke();
+                ctx.restore();
+            }
         } else if (name.includes('Child')) {
             // Rosy cheeks
             ctx.fillStyle = 'rgba(255, 150, 150, 0.3)';

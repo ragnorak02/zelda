@@ -18,6 +18,7 @@
  */
 
 import { distance, normalize } from './utils.js';
+import { VFX_IDENTITY } from './constants.js';
 
 // ── Projectile ──
 
@@ -606,6 +607,33 @@ export class EffectEngine {
             swing.dir + swing.arc / 2);
         ctx.stroke();
 
+        // Fighter identity: expanding ground impact ring (first 50% of duration)
+        const fi = VFX_IDENTITY.fighter;
+        if (progress < 0.5) {
+            const ringProgress = progress / 0.5;
+            ctx.globalAlpha = 0.35 * (1 - ringProgress);
+            ctx.strokeStyle = fi.impactRingColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, swing.range * 0.3 + swing.range * 0.7 * ringProgress, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Fighter identity: dust particles flung along the swing arc
+        ctx.globalAlpha = 0.5 * (1 - progress);
+        const arcStart = swing.dir - swing.arc / 2;
+        for (let i = 0; i < 4; i++) {
+            const t = (i + 0.5) / 4;
+            const particleAngle = arcStart + swing.arc * t;
+            const dist = swing.range * (0.5 + progress * 0.6);
+            const px = Math.cos(particleAngle) * dist;
+            const py = Math.sin(particleAngle) * dist;
+            ctx.fillStyle = fi.dustColor;
+            ctx.beginPath();
+            ctx.arc(px, py, 2.5 - progress * 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         ctx.restore();
     }
 
@@ -743,6 +771,7 @@ export class EffectEngine {
 
     _renderMeteor(ctx, camera, meteor) {
         const s = camera.worldToScreen(meteor.x, meteor.y);
+        const mi = VFX_IDENTITY.mage;
 
         ctx.save();
 
@@ -764,6 +793,24 @@ export class EffectEngine {
             ctx.beginPath();
             ctx.arc(s.x, s.y, meteor.radius, 0, Math.PI * 2);
             ctx.fill();
+
+            // Mage identity: descending energy streak (after 30% of warning)
+            const warningProgress = 1 - meteor.timer / meteor.delay;
+            if (warningProgress > 0.3) {
+                const streakAlpha = (warningProgress - 0.3) / 0.7;
+                const streakTopY = s.y - 120 * (1 - streakAlpha);
+                ctx.globalAlpha = 0.5 * streakAlpha;
+                ctx.strokeStyle = mi.streakColor;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(s.x, streakTopY);
+                ctx.lineTo(s.x, s.y);
+                ctx.stroke();
+                // Streak glow
+                ctx.globalAlpha = 0.15 * streakAlpha;
+                ctx.lineWidth = 8;
+                ctx.stroke();
+            }
         } else {
             // Impact explosion
             const progress = 1 - meteor.timer / meteor.impactTimer;
@@ -779,6 +826,16 @@ export class EffectEngine {
             ctx.beginPath();
             ctx.arc(s.x, s.y, meteor.radius * (0.5 + progress * 0.5), 0, Math.PI * 2);
             ctx.stroke();
+
+            // Mage identity: bright center flare (first 30% of impact)
+            if (progress < 0.3) {
+                const flareAlpha = 1 - progress / 0.3;
+                ctx.globalAlpha = 0.8 * flareAlpha;
+                ctx.fillStyle = mi.flareColor;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, meteor.radius * 0.3 * (1 - progress), 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         ctx.restore();
@@ -787,8 +844,26 @@ export class EffectEngine {
     _renderPulse(ctx, camera, pulse) {
         const s = camera.worldToScreen(pulse.x, pulse.y);
         const progress = pulse.radius / pulse.maxRadius;
+        const ci = VFX_IDENTITY.celestial;
 
         ctx.save();
+
+        // Celestial identity: vertical light beam at start (first 30%)
+        if (progress < 0.3) {
+            const beamAlpha = 1 - progress / 0.3;
+            ctx.globalAlpha = 0.4 * beamAlpha;
+            ctx.strokeStyle = ci.beamColor;
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(s.x, s.y - 60 * beamAlpha);
+            ctx.lineTo(s.x, s.y);
+            ctx.stroke();
+            // Beam glow
+            ctx.globalAlpha = 0.12 * beamAlpha;
+            ctx.lineWidth = 16;
+            ctx.stroke();
+        }
+
         ctx.globalAlpha = 0.5 * (1 - progress);
         ctx.strokeStyle = pulse.color;
         ctx.lineWidth = 4;
@@ -801,6 +876,19 @@ export class EffectEngine {
         ctx.beginPath();
         ctx.arc(s.x, s.y, pulse.radius, 0, Math.PI * 2);
         ctx.fill();
+
+        // Celestial identity: orbiting light particles along ring edge
+        ctx.globalAlpha = 0.6 * (1 - progress);
+        ctx.fillStyle = ci.particleColor;
+        const time = performance.now() / 400;
+        for (let i = 0; i < 6; i++) {
+            const a = time + i * (Math.PI * 2 / 6);
+            const px = s.x + Math.cos(a) * pulse.radius;
+            const py = s.y + Math.sin(a) * pulse.radius;
+            ctx.beginPath();
+            ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         ctx.restore();
     }
