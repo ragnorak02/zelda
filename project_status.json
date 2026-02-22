@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "gameId": "zelda",
+  "title": "Zelda",
+  "lastUpdated": "2026-02-22T00:00:00Z",
+  "macroPhase": 4,
+  "subphaseIndex": 3,
+  "health": {
+    "progressPercent": 56,
+    "buildVersion": "0.2.0",
+    "assetStage": "placeholder_v1"
+  },
+  "tech": {
+    "engine": "HTML5",
+    "engineVersion": "ES2022",
+    "languages": ["JavaScript"],
+    "graphicsType": "2D Canvas"
+  },
+  "features": {
+    "controllerSupport": "complete",
+    "achievementsSystem": "partial",
+    "testScripts": "partial",
+    "saveSystem": "partial",
+    "settingsMenu": "missing",
+    "audio": "missing",
+    "vfx": "partial"
+  },
+  "milestones": {
+    "firstGraphicsPass": true,
+    "controllerIntegration": true,
+    "coreGameplayLoop": true,
+    "verticalSlice": false,
+    "contentComplete": false,
+    "productionReady": false
+  },
+  "testing": {
+    "testCommand": "tests/run-tests.mjs",
+    "lastRunAt": null,
+    "status": "unknown",
+    "notes": "Smoke tests only (module import verification)"
+  },
+  "links": {
+    "repo": null,
+    "launcherId": "zelda"
+  }
+}
