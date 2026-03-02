@@ -275,7 +275,10 @@ export class Enemy {
     takeDamage(amount) {
         this.hp -= amount;
         this.flashTimer = 0.1;
-        if (this.hp <= 0) this.dead = true;
+        if (this.hp <= 0) {
+            this.dead = true;
+            if (this._onDeath) this._onDeath(this);
+        }
     }
 
     render(ctx, camera) {
@@ -671,6 +674,7 @@ export class EnemyManager {
         this.enemies = [];
         this.projectiles = [];   // enemy arrows
         this.world = null;
+        this.onEnemyDeath = null; // callback: (enemy) => void
     }
 
     setWorld(world) {
@@ -678,7 +682,11 @@ export class EnemyManager {
     }
 
     spawn(type, x, y, level) {
-        this.enemies.push(new Enemy(type, x, y, level));
+        const enemy = new Enemy(type, x, y, level);
+        if (this.onEnemyDeath) {
+            enemy._onDeath = this.onEnemyDeath;
+        }
+        this.enemies.push(enemy);
     }
 
     update(dt, player) {

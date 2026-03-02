@@ -8,7 +8,7 @@
  * visit the Fairy Tree, cave, and blocked bridge.
  */
 
-import { WORLD, CHARACTERS, BUILD_VERSION, DEBUG_SPAWN, RUN, GUARD_CONFIG, SHIELD_CONFIG } from './constants.js';
+import { WORLD, CHARACTERS, BUILD_VERSION, DEBUG_SPAWN, RUN, GUARD_CONFIG, SHIELD_CONFIG, XP_CONFIG } from './constants.js';
 import { Input } from './input.js';
 import { Camera } from './camera.js';
 import { Player } from './player.js';
@@ -20,6 +20,9 @@ import { WorldManager } from './world.js';
 import { SpawnSystem } from './spawn.js';
 import { UpgradeSystem } from './upgrade.js';
 import { StatusMenu } from './statusMenu.js';
+import { SettingsMenu } from './settings.js';
+import { AchievementManager } from './achievements.js';
+import { QuestManager } from './quest.js';
 import { normalize, distance } from './utils.js';
 
 const State = Object.freeze({
@@ -68,6 +71,18 @@ export class Game {
         this.statusMenu = new StatusMenu();
         this.statusMenuActive = false;
 
+        // Settings menu
+        this.settingsMenu = new SettingsMenu();
+        this.settingsMenuActive = false;
+
+        // Achievement system
+        this.achievements = new AchievementManager();
+        this.achievements.init(); // async but non-blocking
+        this._achievementToastTimer = 0;
+
+        // Quest system
+        this.questManager = new QuestManager();
+
         // Character view overlay
         this.charViewOverlay = null;
 
@@ -101,6 +116,7 @@ export class Game {
         this.pauseManager.setCallbacks({
             onResume: () => {},
             onViewCharacter: () => this._showStatusMenu(),
+            onSettings: () => this._showSettingsMenu(),
             onSave: (btn) => this._saveGame(btn),
             onMainMenu: () => this._returnToMainMenu()
         });
@@ -112,6 +128,14 @@ export class Game {
         this.statusMenuActive = true;
         this.statusMenu.show(this.player, () => {
             this.statusMenuActive = false;
+        });
+    }
+
+    _showSettingsMenu() {
+        if (this.settingsMenuActive) return;
+        this.settingsMenuActive = true;
+        this.settingsMenu.open(() => {
+            this.settingsMenuActive = false;
         });
     }
 
@@ -170,7 +194,11 @@ export class Game {
                 xpToNextLevel: this.player.xpToNextLevel,
                 inventory: this.player.inventory,
                 currentObjective: this.player.currentObjective,
+                questData: this.questManager.getSaveData(),
+                achievementData: this.achievements.getSaveData(),
+                eastBridgeUnlocked: this.world.isEastBridgeUnlocked(),
             };
+            this.achievements.unlock('save_game');
             localStorage.setItem('zelda_save', JSON.stringify(saveData));
 
             if (btn) {
@@ -208,6 +236,8 @@ export class Game {
 
     _returnToMainMenu() {
         this.pauseManager.resume();
+        if (this.settingsMenuActive) this.settingsMenu.close();
+        this.settingsMenuActive = false;
         if (this.statusMenuActive) this.statusMenu.hide();
         this.statusMenuActive = false;
         this._hideCharacterView();
@@ -247,9 +277,16 @@ export class Game {
             this.pauseManager.pause();
             this.state = State.PAUSED;
         } else if (this.state === State.PAUSED && this.input.actionPressed('pause')) {
-            this.pauseManager.resume();
-            this._hideCharacterView();
-            this.state = State.PLAYING;
+            // If a sub-menu is open, close it first instead of resuming
+            if (this.settingsMenuActive) {
+                this.settingsMenu.close();
+            } else if (this.statusMenuActive) {
+                this.statusMenu.hide();
+            } else {
+                this.pauseManager.resume();
+                this._hideCharacterView();
+                this.state = State.PLAYING;
+            }
         }
         // Detect PauseManager-initiated resume (menu Resume button / B press)
         if (this.state === State.PAUSED && !this.pauseManager.paused) {
@@ -257,7 +294,9 @@ export class Game {
             this.state = State.PLAYING;
         }
         if (this.state === State.PAUSED) {
-            if (this.statusMenuActive) {
+            if (this.settingsMenuActive) {
+                this.settingsMenu.updateGamepad(dt, this.input);
+            } else if (this.statusMenuActive) {
                 this.statusMenu.updateGamepad(dt, this.input);
             } else if (this.charViewOverlay && this.input.actionPressed('dodge')) {
                 this._hideCharacterView();
@@ -320,6 +359,7 @@ export class Game {
                     const intercepted = abilities.onDodge(move);
                     if (!intercepted) {
                         dodge.execute(move, this.player.facing);
+                        this.achievements.unlock('use_dodge');
                     }
                 } else if (this.player.stateMachine.isAirborne) {
                     // Aerial dodge
@@ -380,6 +420,7 @@ export class Game {
         // ── Lock-on ──
         if (this.input.actionPressed('lockon')) {
             this.lockOnSystem.toggle(this.player, this.enemyManager.getEnemies());
+            this.achievements.unlock('use_lockon');
         }
         this.lockOnSystem.update(this.player, this.enemyManager.getEnemies());
         this.player.lockOnTarget = this.lockOnSystem.target;
@@ -494,20 +535,56 @@ export class Game {
         if (this.spawnSystem.levelComplete) {
             this.enemyManager.clear();
             this.upgradeActive = true;
+            if (this.spawnLevel === 1) this.achievements.unlock('survive_wave_1');
             this.upgradeSystem.show(this.player, () => {
                 this.upgradeActive = false;
+                this.achievements.unlock('first_upgrade');
                 this.spawnLevel++;
+                if (this.spawnLevel >= 5) this.achievements.unlock('reach_level_5');
+                if (this.spawnLevel >= 10) this.achievements.unlock('reach_level_10');
+                if (this.player.stats.maxHp >= 200) this.achievements.unlock('max_hp_upgrade');
                 this.spawnSystem.reset(this.spawnLevel);
             });
         }
 
         // ── NPC proximity ──
         this.nearbyNPC = this.world.getNearbyNPC(this.player.x, this.player.y, 60);
+        if (this.nearbyNPC) {
+            this.achievements.unlock('talk_to_npc');
+            this.questManager.talkToNPC(this.nearbyNPC.name);
+        }
+
+        // ── Zone tracking & achievements ──
+        const currentZone = this.world.getZoneName(this.player.x, this.player.y);
+        this.questManager.visitZone(currentZone);
+        if (currentZone !== 'Millhaven' && currentZone !== 'Wilderness') {
+            this.achievements.unlock('first_steps');
+        }
+        if (currentZone === 'The Fairy Tree') this.achievements.unlock('visit_fairy_tree');
+        if (currentZone === 'Darkhollow Cave') this.achievements.unlock('visit_cave');
+        if (currentZone === 'Broken Bridge') this.achievements.unlock('visit_bridge');
+        if (this.questManager.visitedZones.size >= 8) this.achievements.unlock('visit_all_zones');
+
+        // ── Quest update & rewards ──
+        const completedQuests = this.questManager.update(this.spawnLevel);
+        for (const quest of completedQuests) {
+            if (quest.reward) {
+                if (quest.reward.xp && this.player) {
+                    this.player.currentXP += quest.reward.xp;
+                    this._checkLevelUp();
+                }
+                if (quest.reward.unlockZone === 'east_bridge') {
+                    this.world.unlockEastBridge();
+                }
+            }
+        }
+        this.player.currentObjective = this.questManager.getCurrentObjective();
 
         // ── Death check ──
         if (this.player.isDead()) {
             this.state = State.GAME_OVER;
             this.lockOnSystem.target = null;
+            this.achievements.unlock('die_first_time');
         }
 
         this.input.endFrame();
@@ -568,9 +645,57 @@ export class Game {
         // Touch joystick
         this.ui.renderTouchJoystick(this.input);
 
+        // Achievement toasts
+        this._renderAchievementToast(ctx, w, h);
+
         // Game over
         if (this.state === State.GAME_OVER) {
             this.ui.renderGameOver();
+        }
+    }
+
+    _renderAchievementToast(ctx, w, h) {
+        // Check for new toasts
+        if (this._achievementToastTimer <= 0) {
+            const toast = this.achievements.popToast();
+            if (toast) {
+                this._currentToast = toast;
+                this._achievementToastTimer = 3.0; // show for 3 seconds
+            }
+        }
+
+        if (this._achievementToastTimer > 0 && this._currentToast) {
+            this._achievementToastTimer -= 1 / 60; // approximate dt
+            const toast = this._currentToast;
+            const alpha = Math.min(1, this._achievementToastTimer, (3.0 - (3.0 - this._achievementToastTimer)) > 2.5 ? (3.0 - this._achievementToastTimer) * 2 : 1);
+
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, alpha);
+            const tw = 300;
+            const th = 50;
+            const tx = (w - tw) / 2;
+            const ty = 20;
+
+            ctx.fillStyle = 'rgba(0,0,0,0.85)';
+            ctx.beginPath();
+            ctx.roundRect(tx, ty, tw, th, 8);
+            ctx.fill();
+            ctx.strokeStyle = '#f0c850';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#f0c850';
+            ctx.font = 'bold 12px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('ACHIEVEMENT UNLOCKED', w / 2, ty + 18);
+            ctx.fillStyle = '#fff';
+            ctx.font = '11px monospace';
+            ctx.fillText(toast.name + ' (+' + toast.points + 'pts)', w / 2, ty + 36);
+            ctx.restore();
+
+            if (this._achievementToastTimer <= 0) {
+                this._currentToast = null;
+            }
         }
     }
 
@@ -841,6 +966,35 @@ export class Game {
         this.lockOnSystem.target = null;
         this.nearbyNPC = null;
         this.state = State.PLAYING;
+        this._wireEnemyDeathCallback();
+        this.questManager = new QuestManager();
+        this.questManager.acceptAll();
+        this.achievements.unlock('choose_' + charKey);
+    }
+
+    _wireEnemyDeathCallback() {
+        this.enemyManager.onEnemyDeath = (enemy) => {
+            // Award XP
+            const xpGain = enemy.def ? enemy.def.xp : 10;
+            if (this.player) {
+                this.player.currentXP += xpGain;
+                this._checkLevelUp();
+            }
+            // Track kills for quests and achievements
+            this.questManager.recordKill(enemy.type);
+            if (this.questManager.killCount === 1) this.achievements.unlock('first_kill');
+            if (this.questManager.killCount >= 50) this.achievements.unlock('kill_50');
+        };
+    }
+
+    _checkLevelUp() {
+        while (this.player.currentXP >= this.player.xpToNextLevel) {
+            this.player.currentXP -= this.player.xpToNextLevel;
+            this.player.level++;
+            this.player.xpToNextLevel = Math.floor(XP_CONFIG.baseXpToLevel * (1 + (this.player.level - 1) * 0.5));
+            // Heal on level up + small stat boost
+            this.player.hp = Math.min(this.player.hp + 10, this.player.stats.maxHp);
+        }
     }
 
     _continueGame(saveData) {
@@ -877,6 +1031,18 @@ export class Game {
         this.lockOnSystem.target = null;
         this.nearbyNPC = null;
         this.state = State.PLAYING;
+        this._wireEnemyDeathCallback();
+
+        // Restore quest state
+        this.questManager = new QuestManager();
+        this.questManager.acceptAll();
+        if (saveData.questData) this.questManager.loadSaveData(saveData.questData);
+
+        // Restore achievement state
+        if (saveData.achievementData) this.achievements.loadSaveData(saveData.achievementData);
+
+        // Restore zone unlock
+        if (saveData.eastBridgeUnlocked) this.world.unlockEastBridge();
     }
 
     // ── Restart ──

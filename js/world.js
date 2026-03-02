@@ -361,6 +361,16 @@ export class WorldManager {
         return this.getZoneType(x, y) !== ZONE_TYPES.WILD;
     }
 
+    /** Remove the east bridge barricade, unlocking access to the east. */
+    unlockEastBridge() {
+        this.obstacles = this.obstacles.filter(o => o.type !== 'barricade');
+        this._eastBridgeUnlocked = true;
+    }
+
+    isEastBridgeUnlocked() {
+        return !!this._eastBridgeUnlocked;
+    }
+
     /** Returns all zones (for debug overlay). */
     getAllZones() {
         return this.zones;

@@ -239,14 +239,14 @@ All art is procedural (no sprite assets).
 
 # Current Known Gaps
 
-- No structured quest/progression system
-- No unlock mechanics (east bridge barricade visual only)
+- ~~No structured quest/progression system~~ (CP29-30 complete)
+- ~~No unlock mechanics~~ (CP31 — east bridge conditional removal)
 - No external assets (audio/music)
 - NPCs lack interaction depth
-- Save/load limited to localStorage player state
-- No settings menu
+- ~~Save/load limited~~ (CP33 — quest/achievement/zone state persisted)
+- ~~No settings menu~~ (CP11 complete)
 - No boss encounters
-- No achievement trigger code (JSON defined, hooks missing)
+- ~~No achievement trigger code~~ (CP32 — 20 hooks wired)
 - Version not displayed on screen
 - PAUSED not in State enum (handled via external flag)
 
@@ -271,7 +271,7 @@ All art is procedural (no sprite assets).
 
 - [x] 9. Character select complete
 - [x] 10. Pause menu complete
-- [ ] 11. Settings menu baseline
+- [x] 11. Settings menu baseline
 - [x] 12. Save/load stub validated
 - [x] 13. HUD clarity baseline
 - [x] 14. On-screen control hints
@@ -300,21 +300,21 @@ All art is procedural (no sprite assets).
 - [x] 27. SpawnSystem wired into Game
 - [x] 28. Upgrade system integrated
 
-- [ ] 28a. WorldZoneSystem added (TownZone + NoSpawn support)
-- [ ] 28b. TownZone blocks enemy entry (movement restriction enforced)
-- [ ] 28c. TownZone blocks enemy spawning (spawn restriction enforced)
+- [x] 28a. WorldZoneSystem added (TownZone + NoSpawn support)
+- [x] 28b. TownZone blocks enemy entry (movement restriction enforced)
+- [x] 28c. TownZone blocks enemy spawning (spawn restriction enforced)
 
-- [ ] 28d. SpawnSystem v2: spawn points implemented (EnemySpawnPoint)
-- [ ] 28e. SpawnSystem v2: cooldowns per spawn point
-- [ ] 28f. SpawnSystem v2: density caps near spawn point
-- [ ] 28g. SpawnSystem v2: anti-camping (min player distance)
-- [ ] 28h. SpawnSystem v2: debug overlay + structured logs
+- [x] 28d. SpawnSystem v2: spawn points implemented (EnemySpawnPoint)
+- [x] 28e. SpawnSystem v2: cooldowns per spawn point
+- [x] 28f. SpawnSystem v2: density caps near spawn point
+- [x] 28g. SpawnSystem v2: anti-camping (min player distance)
+- [x] 28h. SpawnSystem v2: debug overlay + structured logs
 
-- [ ] 29. Progression system defined
-- [ ] 30. Quest framework implemented
-- [ ] 31. Zone unlocking mechanics added
-- [ ] 32. Achievement hooks integrated
-- [ ] 33. Save persistence expanded
+- [x] 29. Progression system defined (XP from enemy kills, level up with scaling thresholds)
+- [x] 30. Quest framework implemented (QuestManager with 5 data-driven quests)
+- [x] 31. Zone unlocking mechanics added (east bridge barricade conditional removal)
+- [x] 32. Achievement hooks integrated (20 achievements with localStorage + toast system)
+- [x] 33. Save persistence expanded (questData, achievementData, eastBridgeUnlocked added)
 - [x] 34. Enemy variety expanded
 - [ ] 35. Debug/dev tooling commands
 - [ ] 36. Input remap support
@@ -356,10 +356,10 @@ All art is procedural (no sprite assets).
 
 # Current Focus
 
-Current Goal: Phase 4 — Systems Expansion
-Current Task: WorldZoneSystem + SpawnSystem v2
+Current Goal: Phase 4 — Systems Expansion (finishing)
+Current Task: Debug tooling + Input remap (CP35-36)
 Work Mode: Feature
-Next Milestone: Checkpoints 28a–28h complete
+Next Milestone: Phase 5 — Vertical Slice & Content
 
 ---
 
