@@ -19,7 +19,8 @@ export class AchievementManager {
     async init() {
         try {
             const resp = await fetch('achievements.json');
-            this.achievements = await resp.json();
+            const data = await resp.json();
+            this.achievements = Array.isArray(data) ? data : (data.achievements || []);
         } catch (err) {
             console.warn('[achievements] Failed to load achievements.json:', err);
             this.achievements = [];

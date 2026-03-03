@@ -671,6 +671,107 @@ canvas {
     font-family: monospace;
 }
 
+/* ── Settings Menu ── */
+
+#settings-menu {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 30, 0.95);
+    z-index: 130;
+    animation: fadeIn 0.2s ease;
+}
+
+.settings-panel {
+    max-width: 420px;
+    width: 90%;
+    padding: 24px;
+    text-align: center;
+}
+
+.settings-panel h2 {
+    font-size: 36px;
+    font-weight: 900;
+    color: #f0c850;
+    margin-bottom: 24px;
+    font-family: monospace;
+    letter-spacing: 4px;
+}
+
+.settings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+}
+
+.settings-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.settings-item:hover,
+.settings-item.gp-selected {
+    border-color: #d4af37;
+    background: rgba(240, 200, 80, 0.08);
+}
+
+.settings-item.gp-selected {
+    box-shadow: 0 0 12px rgba(212, 175, 55, 0.3);
+}
+
+.settings-label {
+    color: #ccc;
+    font-family: monospace;
+    font-size: 15px;
+}
+
+.settings-value {
+    color: #f0c850;
+    font-family: monospace;
+    font-size: 15px;
+    font-weight: bold;
+    min-width: 40px;
+    text-align: right;
+}
+
+.settings-slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-slider-track {
+    width: 120px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.settings-slider-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #d4af37, #f0c850);
+    border-radius: 4px;
+    transition: width 0.1s ease;
+}
+
+.settings-close-hint {
+    text-align: center;
+    font-size: 11px;
+    color: #555;
+    font-family: monospace;
+}
+
 /* ── Mobile ── */
 
 @media (max-width: 600px) {

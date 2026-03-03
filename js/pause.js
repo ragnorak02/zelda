@@ -12,6 +12,7 @@ export class PauseManager {
 
         this._onResume = null;
         this._onViewCharacter = null;
+        this._onSettings = null;
         this._onSave = null;
         this._onMainMenu = null;
 
@@ -22,9 +23,10 @@ export class PauseManager {
     }
 
     /** Register callbacks for each menu action. */
-    setCallbacks({ onResume, onViewCharacter, onSave, onMainMenu }) {
+    setCallbacks({ onResume, onViewCharacter, onSettings, onSave, onMainMenu }) {
         this._onResume = onResume;
         this._onViewCharacter = onViewCharacter;
+        this._onSettings = onSettings;
         this._onSave = onSave;
         this._onMainMenu = onMainMenu;
     }
@@ -59,6 +61,7 @@ export class PauseManager {
                 <div class="pause-menu">
                     <button class="pause-btn" data-action="resume">Resume</button>
                     <button class="pause-btn" data-action="character">Status</button>
+                    <button class="pause-btn" data-action="settings">Settings</button>
                     <button class="pause-btn" data-action="save">Save Game</button>
                     <button class="pause-btn" data-action="mainmenu">Return to Main Menu</button>
                 </div>
@@ -94,6 +97,10 @@ export class PauseManager {
 
         el.querySelector('[data-action="character"]').addEventListener('click', () => {
             if (this._onViewCharacter) this._onViewCharacter();
+        });
+
+        el.querySelector('[data-action="settings"]').addEventListener('click', () => {
+            if (this._onSettings) this._onSettings();
         });
 
         el.querySelector('[data-action="save"]').addEventListener('click', (e) => {

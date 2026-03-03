@@ -465,6 +465,13 @@ export const XP_CONFIG = {
     startingLevel: 1,
 };
 
+// ── Settings Defaults ──
+export const SETTINGS_DEFAULTS = {
+    showControlHints: true,
+    showDebugOverlay: false,
+    volume: 0.7,
+};
+
 // ── Debug Flags ──
 export const DEBUG_ZONES = false;
 export const DEBUG_SPAWN = false;
